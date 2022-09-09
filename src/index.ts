@@ -94,7 +94,10 @@ export const decrypt = async (
   ciphertext: string,
   kdf: Kdf,
   needle?: string
-): Promise<string> => {
+): Promise<{
+  message: string
+  needle: string
+}> => {
   const key = await kdf(passphrase, salt)
   let start = 0
   let index: number | null
@@ -117,6 +120,7 @@ export const decrypt = async (
         const string = buffer.toString()
         if (!string.match(/�/)) {
           message = string
+          needle = wordlist[start]
         }
         if (message) {
           break
@@ -131,5 +135,8 @@ export const decrypt = async (
   if (!message) {
     throw new Error("Secret not found")
   }
-  return message
+  return {
+    message,
+    needle,
+  }
 }

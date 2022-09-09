@@ -64,7 +64,10 @@ test("encrypts secrets and quicly decrypts secret 1 without needle", async () =>
     block.ciphertext,
     insecureKdf
   )
-  expect(secret).toEqual(secrets[0].message)
+  expect(secret).toEqual({
+    message: secrets[0].message,
+    needle: block.needles[0],
+  })
 })
 
 test("encrypts secrets and eventually fails to decrypt secret 1 using wrong needle", async () => {
@@ -93,7 +96,10 @@ test("encrypt secrets and eventually decrypts secret 2 without needle", async ()
     block.ciphertext,
     insecureKdf
   )
-  expect(secret).toEqual(secrets[1].message)
+  expect(secret).toEqual({
+    message: secrets[1].message,
+    needle: block.needles[1],
+  })
 })
 
 test("encrypt secrets and quickly decrypts secret 2 using needle", async () => {
@@ -106,5 +112,8 @@ test("encrypt secrets and quickly decrypts secret 2 using needle", async () => {
     insecureKdf,
     block.needles[1]
   )
-  expect(secret).toEqual(secrets[1].message)
+  expect(secret).toEqual({
+    message: secrets[1].message,
+    needle: block.needles[1],
+  })
 })
