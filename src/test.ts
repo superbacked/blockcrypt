@@ -74,7 +74,7 @@ test("fails to encrypt secrets using block size that is to small for secrets", a
 })
 
 test("encrypts secrets and quickly decrypts secret 1 without needle", async () => {
-  const block = await encrypt(secrets, insecureKdf, 1024)
+  const block = await encrypt(secrets, insecureKdf)
   const secret = await decrypt(
     secrets[0].passphrase,
     block.salt,
