@@ -47,6 +47,7 @@ test("confirms block matches reference", async () => {
 })
 
 test("fails to encrypt secrets using block size that is to small", async () => {
+  expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, 256)
   } catch (error) {
@@ -67,6 +68,7 @@ test("encrypts secrets and quicly decrypts secret 1 without needle", async () =>
 })
 
 test("encrypts secrets and eventually fails to decrypt secret 1 using wrong needle", async () => {
+  expect.assertions(1)
   const block = await encrypt(secrets, insecureKdf)
   try {
     await decrypt(
