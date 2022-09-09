@@ -46,7 +46,25 @@ test("confirms block matches reference", async () => {
   expect(block.needles).toEqual(referenceNeedles)
 })
 
-test("fails to encrypt secrets using block size that is to small", async () => {
+test("fails to encrypt secrets using invalid negative block size", async () => {
+  expect.assertions(1)
+  try {
+    await encrypt(secrets, insecureKdf, -1)
+  } catch (error) {
+    expect(error.message).toEqual("Invalid block size")
+  }
+})
+
+test("fails to encrypt secrets using invalid positive block size", async () => {
+  expect.assertions(1)
+  try {
+    await encrypt(secrets, insecureKdf, 2048)
+  } catch (error) {
+    expect(error.message).toEqual("Invalid block size")
+  }
+})
+
+test("fails to encrypt secrets using block size that is to small for secrets", async () => {
   expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, 256)
@@ -55,7 +73,7 @@ test("fails to encrypt secrets using block size that is to small", async () => {
   }
 })
 
-test("encrypts secrets and quicly decrypts secret 1 without needle", async () => {
+test("encrypts secrets and quickly decrypts secret 1 without needle", async () => {
   const block = await encrypt(secrets, insecureKdf, 1024)
   const secret = await decrypt(
     secrets[0].passphrase,
@@ -68,6 +86,23 @@ test("encrypts secrets and quicly decrypts secret 1 without needle", async () =>
     message: secrets[0].message,
     needle: block.needles[0],
   })
+})
+
+test("encrypts secrets and quickly fails to decrypt secret 1 using invalid needle", async () => {
+  expect.assertions(1)
+  const block = await encrypt(secrets, insecureKdf)
+  try {
+    await decrypt(
+      secrets[0].passphrase,
+      block.salt,
+      block.iv,
+      block.ciphertext,
+      insecureKdf,
+      "snap"
+    )
+  } catch (error) {
+    expect(error.message).toEqual("Needle not found")
+  }
 })
 
 test("encrypts secrets and eventually fails to decrypt secret 1 using wrong needle", async () => {

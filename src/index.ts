@@ -48,6 +48,9 @@ export const encrypt = async (
   salt?: Buffer,
   iv?: Buffer
 ): Promise<Block> => {
+  if (blockSize < 0 || blockSize > 1024) {
+    throw new Error("Invalid block size")
+  }
   if (salt === undefined) {
     salt = randomBytes(16)
   }
@@ -98,6 +101,9 @@ export const decrypt = async (
   message: string
   needle: string
 }> => {
+  if (needle && !wordlist.includes(needle)) {
+    throw new Error("Needle not found")
+  }
   const key = await kdf(passphrase, salt)
   let start = 0
   let index: number | null
