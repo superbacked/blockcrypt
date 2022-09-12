@@ -18,6 +18,11 @@ export interface Block {
   needles: string[]
 }
 
+export interface Fragment {
+  message: string
+  needle: string
+}
+
 /**
  * Get index of needle
  * @param needle needle
@@ -33,10 +38,27 @@ export const getNeedleIndex = (needle: string) => {
 }
 
 /**
+ * Check if secrets are valid
+ * @param secrets secrets
+ * @returns true or false
+ */
+export const validateSecrets = (secrets: Secret[]) => {
+  if (!(secrets instanceof Array) || secrets.length === 0) {
+    return false
+  }
+  for (const secret of secrets) {
+    if (!secret.message || !secret.passphrase) {
+      return false
+    }
+  }
+  return true
+}
+
+/**
  * Encrypt secrets using AES-256-CBC
  * @param secrets secrets
  * @param kdf key derivation function
- * @param blockSize optional, block size (defaults to total message length * 2 rounded to nearest upper increment of 256)
+ * @param blockSize optional, block size (defaults to first message length * 3 rounded to nearest upper increment of 256)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
  * @returns encrypted “block”
@@ -48,20 +70,19 @@ export const encrypt = async (
   salt?: Buffer,
   iv?: Buffer
 ): Promise<Block> => {
+  if (!validateSecrets(secrets)) {
+    throw new Error("Invalid secrets")
+  }
   if (!blockSize) {
-    let messagesLength: number = 0
-    for (const secret of secrets) {
-      messagesLength += secret.message.length
-    }
-    blockSize = Math.ceil((messagesLength * 2) / 256) * 256
+    blockSize = Math.ceil((secrets[0].message.length * 3) / 256) * 256
   }
   if (blockSize < 0 || blockSize > wordlist.length) {
     throw new Error("Invalid block size")
   }
-  if (salt === undefined) {
+  if (!salt) {
     salt = randomBytes(16)
   }
-  if (iv === undefined) {
+  if (!iv) {
     iv = randomBytes(16)
   }
   let ciphertext = ""
@@ -94,7 +115,7 @@ export const encrypt = async (
  * @param iv initialization vector
  * @param ciphertext ciphertext
  * @param kdf key derivation function
- * @param needle optional, needle used to significantly speed up parsing
+ * @param needle optional, needle used to significantly speed up decryption
  * @returns secret
  */
 export const decrypt = async (
@@ -104,10 +125,7 @@ export const decrypt = async (
   ciphertext: string,
   kdf: Kdf,
   needle?: string
-): Promise<{
-  message: string
-  needle: string
-}> => {
+): Promise<Fragment> => {
   if (needle && !wordlist.includes(needle)) {
     throw new Error("Needle not found")
   }

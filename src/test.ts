@@ -46,6 +46,25 @@ test("confirms block matches reference", async () => {
   expect(block.needles).toEqual(referenceNeedles)
 })
 
+test("fails to encrypt no secrets", async () => {
+  expect.assertions(1)
+  try {
+    await encrypt([], insecureKdf)
+  } catch (error) {
+    expect(error.message).toEqual("Invalid secrets")
+  }
+})
+
+test("fails to encrypt invalid secrets", async () => {
+  expect.assertions(1)
+  try {
+    //@ts-ignore
+    await encrypt([{ foo: "bar" }], insecureKdf)
+  } catch (error) {
+    expect(error.message).toEqual("Invalid secrets")
+  }
+})
+
 test("fails to encrypt secrets using invalid negative block size", async () => {
   expect.assertions(1)
   try {
@@ -64,10 +83,34 @@ test("fails to encrypt secrets using invalid positive block size", async () => {
   }
 })
 
-test("fails to encrypt secrets using block size that is to small for secrets", async () => {
+test("fails to encrypt secrets using fixed block size that is to small for secrets", async () => {
   expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, 256)
+  } catch (error) {
+    expect(error.message).toEqual("Secrets too large for block size")
+  }
+})
+
+test("fails to encrypt secrets using auto block size that is to small for secrets", async () => {
+  expect.assertions(1)
+  try {
+    await encrypt(
+      [].concat(
+        ...secrets,
+        {
+          message:
+            "apple detail zoo peanut plastic reject payment renew box coconut ivory media gold antique scorpion settle trip gaze rain slender sunny hidden mule old",
+          passphrase: "tart equal payer early axis",
+        },
+        {
+          message:
+            "leaf spawn guitar immune diagram height flag once giant tell pepper sugar sphere stomach coach erase fatigue lens tunnel love range flight embark control",
+          passphrase: "mate cedar brook flop snowy",
+        }
+      ),
+      insecureKdf
+    )
   } catch (error) {
     expect(error.message).toEqual("Secrets too large for block size")
   }
