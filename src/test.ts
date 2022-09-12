@@ -28,7 +28,7 @@ const referenceSaltBuffer = Buffer.from(decode("PZE3jTZh45dkU6Du2H4T1j"))
 const referenceIvBuffer = Buffer.from(decode("35Trmr54uFiqdd7xTs4iM7"))
 const referenceCiphertextSignature =
   "5fwe9NVe1omHDCWy5hPAk1Vne2XvwFCHAWBLjwxnFFFGm4tvhQVY55N9o5RnVGA1"
-const referenceNeedles = ["acid", "cold", "curry"]
+const referenceNeedles = ["abandon", "bread", "can"]
 
 test("confirms block matches reference", async () => {
   const block = await encrypt(
@@ -58,7 +58,7 @@ test("fails to encrypt secrets using invalid negative block size", async () => {
 test("fails to encrypt secrets using invalid positive block size", async () => {
   expect.assertions(1)
   try {
-    await encrypt(secrets, insecureKdf, 2048)
+    await encrypt(secrets, insecureKdf, 4096)
   } catch (error) {
     expect(error.message).toEqual("Invalid block size")
   }
@@ -98,7 +98,7 @@ test("encrypts secrets and quickly fails to decrypt secret 1 using invalid needl
       block.iv,
       block.ciphertext,
       insecureKdf,
-      "snap"
+      "yo"
     )
   } catch (error) {
     expect(error.message).toEqual("Needle not found")

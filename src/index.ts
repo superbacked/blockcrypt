@@ -36,7 +36,7 @@ export const getNeedleIndex = (needle: string) => {
  * Encrypt secrets using AES-256-CBC
  * @param secrets secrets
  * @param kdf key derivation function
- * @param blockSize block size (defaults to 1024)
+ * @param blockSize optional, block size (defaults to total message length * 2 rounded to nearest upper increment of 256)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
  * @returns encrypted “block”
@@ -44,11 +44,18 @@ export const getNeedleIndex = (needle: string) => {
 export const encrypt = async (
   secrets: Secret[],
   kdf: Kdf,
-  blockSize = 1024,
+  blockSize?: number,
   salt?: Buffer,
   iv?: Buffer
 ): Promise<Block> => {
-  if (blockSize < 0 || blockSize > 1024) {
+  if (!blockSize) {
+    let messagesLength: number = 0
+    for (const secret of secrets) {
+      messagesLength += secret.message.length
+    }
+    blockSize = Math.ceil((messagesLength * 2) / 256) * 256
+  }
+  if (blockSize < 0 || blockSize > wordlist.length) {
     throw new Error("Invalid block size")
   }
   if (salt === undefined) {
