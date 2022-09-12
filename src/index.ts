@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
 import bs58 from "bs58"
-import wordlist from "./wordlist.js"
+import wordlist from "./wordlist"
 
 const algorithm = "aes-256-cbc"
 
