@@ -43,7 +43,7 @@ export const getBlockSize = (message: string) => {
 }
 
 /**
- * Encrypt secrets using BlockCrypt
+ * Encrypt secrets using Blockcrypt
  * @param secrets secrets
  * @param kdf key derivation function
  * @param headersSize optional, headers size in increments of 8 (defaults to 128)
@@ -128,7 +128,7 @@ export const encrypt = async (
 }
 
 /**
- * Decrypt secret encrypted using BlockCrypt
+ * Decrypt secret encrypted using Blockcrypt
  * @param passphrase passphrase
  * @param salt salt
  * @param iv initialization vector

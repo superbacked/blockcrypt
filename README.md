@@ -1,8 +1,8 @@
-# BlockCrypt (beta)
+# Blockcrypt (beta)
 
 ## Encrypt one or more secrets with plausible deniability by design.
 
-BlockCrypt is used to encrypt one or more secrets (up to 5 by default) using encrypted headers which are indistinguisable from each other and padding resulting in plausible deniability by design.
+Blockcrypt is used to encrypt one or more secrets (up to 5 by default) using encrypted headers which are indistinguisable from each other and padding resulting in plausible deniability by design.
 
 ## Installation
 
