@@ -2,7 +2,7 @@
 
 ## Encrypt one or more secrets with plausible deniability by design.
 
-BlockCrypt uses Base58 to render one or more AES-256-CBC-encrypted secrets indistinguishable from each other and padding yielding ciphertext “blocks” of fixed size that one can print as QR codes.
+BlockCrypt is used to encrypt one or more secrets (up to 5 by default) using encrypted headers which are indistinguisable from each other and padding resulting in plausible deniability by design.
 
 ## Installation
 
@@ -26,26 +26,26 @@ const secrets: Secret[] = [
     passphrase: "grunt daisy chow barge pants",
   },
   {
-    message: "foo",
+    message: "yo",
     passphrase: "decor gooey wish kept pug",
   },
 ]
 
 const block = await encrypt(secrets, kdf)
 // {
-//   salt: 'PZE3jTZh45dkU6Du2H4T1j',
-//   iv: '35Trmr54uFiqdd7xTs4iM7',
-//   ciphertext: '5fwe9NVe1omHDCWy5hPAk1Vne2XvwFCHAWBLjwxnFFFGm4tvhQVY55N9o5RnVGA1gd5EfX8xxWYZGxnbeUM9sqK8SzbCi2R5nA4K2zJ4oc4j6HFBiYkVq4JCfuAgoq2KwY1VSqtfBkcEMHqasDv263pbFdMQUiQDGDTCKZPCfDzqTUsFF19jKX51JPin8AxU7ywZ1vsWjLjmo41zVAX1jCLi1gDJ2bxupKeiKsrDvWgXXrkFpbC18CauJuFbbnuoMK3NP7m3itpRe3nfb4ZQNCGGv4JCv2cqpGdmhrXaVfKsP1zvjoNWbSJJPbhzGFJCgyvKsx4Aib3tpByXKkXJEQid27SNshPap2oD27LgnDraNDHgR9tD2euKj9nXFKcFQ22T6DwAqsFS34KVNzCHF6jF8oq9SHHCL2hhCnncgAweKyT8XEwnZBH8XzdJH36HqmpQrTu1V4xLxG7TDes1GvNKsqhS6nyPczrhwKyLKo519SAp8iAcm6GT2W3owrxz6rPKdDdA5UE4gdG5o7roHhFG2TMEU7C3AZiwLSvdJcFksF2jKU6ZvdKBcrZd6bApthpuWbdPd7UJKgsx248QvxiyiE9uZ6rTB5HWinA5SJRRwNoLgvCgCLA6TMTqJ8aY9C2PDVcdV3KG3o9i6H5W181o5gMqaxctcEahWFVoonbR3sZmBCMg3vBGvEcm1WFANAM1X5uAHLgWhuLoRSG2jRgjJ5ZTbqystMvsu6MdeAUeRAYh1Wo8QKjX8hoTK7zg94mcb5rVEoJT4cEH2hCpRtviwGDs8yMsTubPBDPJJZCrxFQZdioWwViqhEjfJpdoT6ktt9TSxxRJUZa82vugKN1khxfGUubxrt68Y8ssfXK4Yx3xwWXSfXiphRjU18jCueUmJpMrX3mVqYSyjwwhbzvj2r8WoMCnF2YND7Nu71ptc3RVB73NqDzxd9WwBb84HGpedH47Tcv5P9XJ2Sj4e1CusMjKuMyyghQiAMT3iGA6d99nb9t7GTuGbmxuKsQV',
-//   needles: [ 'abandon', 'bread', 'can' ]
+//   salt: 'Com4/aFtBjaGdvbjgi5UNw==',
+//   iv: 'u05uhhQe3NDtCf39rsxnig==',
+//   headers: 'ZYtwLEiUAXh+BCO31dT79JrKb5AlZ/94wwYG9b/T1JKH0CAZckJsl+v8x7Xr2t8zVOXLMWFoTncNbWblZj6g5PkswLqTlJY8uytKI8NilmVG23STxto9ZdZnlWbdP3BQ',
+//   payload: 'FgsCYmyDsw1Sk3RzVFxml+YsB5D9656V8Ngk4hoIb57EXfx7UImXOz0dCpAZ5jOl3tli5pU9PC7tEWItMy3j9n9sb1W+x8R3sQzrMp6stdcSMKyOlBP5pCsFHUec9MQb1xyZwwOBlgw7VMMSpkH+dVKMFj/0RapnjpymHAVecY3m7YyOcFDG8Cl+jcqfeVcmb53cW7/B+oaPG+5810gcpscK7ioio7a+TeJU9BKjYfCA0voXF9gTFA6XfRrC9f1sXhdJKms8AsuY6/UoA5h+lUJkKdaHnhvJCqa4ta8Po1iDJ4MTdwuzIp7guRDp46JyBprjkP0A4o0PUB42ycQVoO8v5v+7Lql0Yr8caZRfDZMn77XVZ0q/fvDsr8UC/C5G5mFmS68G2XyyPYIknCxcD2Xp3ULhlXBbg5rYbyogpbYGxURaHXMQ3QfrsGaA4swAGOxGDPQhGdINwW+4+153glrUNXKRj6o0LxgWF6uknZwSpOrAOUVApr/zoS2qmg=='
 // }
 
 const secret = await decrypt(
   "grunt daisy chow barge pants",
-  "PZE3jTZh45dkU6Du2H4T1j",
-  "35Trmr54uFiqdd7xTs4iM7",
-  "5fwe9NVe1omHDCWy5hPAk1Vne2XvwFCHAWBLjwxnFFFGm4tvhQVY55N9o5RnVGA1gd5EfX8xxWYZGxnbeUM9sqK8SzbCi2R5nA4K2zJ4oc4j6HFBiYkVq4JCfuAgoq2KwY1VSqtfBkcEMHqasDv263pbFdMQUiQDGDTCKZPCfDzqTUsFF19jKX51JPin8AxU7ywZ1vsWjLjmo41zVAX1jCLi1gDJ2bxupKeiKsrDvWgXXrkFpbC18CauJuFbbnuoMK3NP7m3itpRe3nfb4ZQNCGGv4JCv2cqpGdmhrXaVfKsP1zvjoNWbSJJPbhzGFJCgyvKsx4Aib3tpByXKkXJEQid27SNshPap2oD27LgnDraNDHgR9tD2euKj9nXFKcFQ22T6DwAqsFS34KVNzCHF6jF8oq9SHHCL2hhCnncgAweKyT8XEwnZBH8XzdJH36HqmpQrTu1V4xLxG7TDes1GvNKsqhS6nyPczrhwKyLKo519SAp8iAcm6GT2W3owrxz6rPKdDdA5UE4gdG5o7roHhFG2TMEU7C3AZiwLSvdJcFksF2jKU6ZvdKBcrZd6bApthpuWbdPd7UJKgsx248QvxiyiE9uZ6rTB5HWinA5SJRRwNoLgvCgCLA6TMTqJ8aY9C2PDVcdV3KG3o9i6H5W181o5gMqaxctcEahWFVoonbR3sZmBCMg3vBGvEcm1WFANAM1X5uAHLgWhuLoRSG2jRgjJ5ZTbqystMvsu6MdeAUeRAYh1Wo8QKjX8hoTK7zg94mcb5rVEoJT4cEH2hCpRtviwGDs8yMsTubPBDPJJZCrxFQZdioWwViqhEjfJpdoT6ktt9TSxxRJUZa82vugKN1khxfGUubxrt68Y8ssfXK4Yx3xwWXSfXiphRjU18jCueUmJpMrX3mVqYSyjwwhbzvj2r8WoMCnF2YND7Nu71ptc3RVB73NqDzxd9WwBb84HGpedH47Tcv5P9XJ2Sj4e1CusMjKuMyyghQiAMT3iGA6d99nb9t7GTuGbmxuKsQV",
-  kdf,
-  "bread" // One can optionally supply needle to significantly speed up decryption
+  "Com4/aFtBjaGdvbjgi5UNw==",
+  "u05uhhQe3NDtCf39rsxnig==",
+  "ZYtwLEiUAXh+BCO31dT79JrKb5AlZ/94wwYG9b/T1JKH0CAZckJsl+v8x7Xr2t8zVOXLMWFoTncNbWblZj6g5PkswLqTlJY8uytKI8NilmVG23STxto9ZdZnlWbdP3BQ",
+  "FgsCYmyDsw1Sk3RzVFxml+YsB5D9656V8Ngk4hoIb57EXfx7UImXOz0dCpAZ5jOl3tli5pU9PC7tEWItMy3j9n9sb1W+x8R3sQzrMp6stdcSMKyOlBP5pCsFHUec9MQb1xyZwwOBlgw7VMMSpkH+dVKMFj/0RapnjpymHAVecY3m7YyOcFDG8Cl+jcqfeVcmb53cW7/B+oaPG+5810gcpscK7ioio7a+TeJU9BKjYfCA0voXF9gTFA6XfRrC9f1sXhdJKms8AsuY6/UoA5h+lUJkKdaHnhvJCqa4ta8Po1iDJ4MTdwuzIp7guRDp46JyBprjkP0A4o0PUB42ycQVoO8v5v+7Lql0Yr8caZRfDZMn77XVZ0q/fvDsr8UC/C5G5mFmS68G2XyyPYIknCxcD2Xp3ULhlXBbg5rYbyogpbYGxURaHXMQ3QfrsGaA4swAGOxGDPQhGdINwW+4+153glrUNXKRj6o0LxgWF6uknZwSpOrAOUVApr/zoS2qmg==",
+  kdf
 )
 // this is a test
 // yo

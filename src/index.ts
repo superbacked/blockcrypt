@@ -1,6 +1,4 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
-import bs58 from "bs58"
-import wordlist from "./wordlist"
 
 const algorithm = "aes-256-cbc"
 
@@ -9,40 +7,16 @@ export interface Secret {
   passphrase: string
 }
 
-export type Kdf = (passphrase: string, salt?: string) => Promise<string>
+export type Kdf = (passphrase: string, salt?: string) => Promise<Buffer>
 
 export interface Block {
   salt: string
   iv: string
-  ciphertext: string
-  needles: string[]
+  headers: string
+  payload: string
 }
 
-export interface Fragment {
-  message: string
-  needle: string
-}
-
-/**
- * Get index of needle
- * @param needle needle
- * @returns index
- */
-export const getNeedleIndex = (needle: string) => {
-  for (const [index, word] of wordlist.entries()) {
-    if (word === needle) {
-      return index
-    }
-  }
-  return null
-}
-
-/**
- * Check if secrets are valid
- * @param secrets secrets
- * @returns true or false
- */
-export const validateSecrets = (secrets: Secret[]) => {
+const validateSecrets = (secrets: Secret[]) => {
   if (!(secrets instanceof Array) || secrets.length === 0) {
     return false
   }
@@ -55,29 +29,33 @@ export const validateSecrets = (secrets: Secret[]) => {
 }
 
 /**
- * Encrypt secrets using AES-256-CBC
+ * Encrypt secrets using BlockCrypt
  * @param secrets secrets
  * @param kdf key derivation function
- * @param blockSize optional, block size (defaults to first message length * 3 rounded to nearest upper increment of 256)
+ * @param headersSize optional, headers size in increments of 8 (defaults to 128)
+ * @param payloadSize optional, payload size in increments of 8 (defaults to first secret ciphertext buffer size * 2 rounded to nearest upper increment of 128)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
- * @returns encrypted “block”
+ * @returns block
  */
 export const encrypt = async (
   secrets: Secret[],
   kdf: Kdf,
-  blockSize?: number,
+  headersSize?: number,
+  payloadSize?: number,
   salt?: Buffer,
   iv?: Buffer
 ): Promise<Block> => {
   if (!validateSecrets(secrets)) {
     throw new Error("Invalid secrets")
   }
-  if (!blockSize) {
-    blockSize = Math.ceil((secrets[0].message.length * 3) / 256) * 256
+  if (headersSize && headersSize % 8 !== 0) {
+    throw new Error("Invalid headers size")
+  } else if (!headersSize) {
+    headersSize = 128
   }
-  if (blockSize < 0 || blockSize > wordlist.length) {
-    throw new Error("Invalid block size")
+  if (payloadSize && payloadSize % 8 !== 0) {
+    throw new Error("Invalid payload size")
   }
   if (!salt) {
     salt = randomBytes(16)
@@ -85,89 +63,136 @@ export const encrypt = async (
   if (!iv) {
     iv = randomBytes(16)
   }
-  let ciphertext = ""
-  let needles: string[] = []
-  for (const secret of secrets) {
-    const key = await kdf(secret.passphrase, bs58.encode(salt))
-    const cipher = createCipheriv(algorithm, Buffer.from(key, "hex"), iv)
-    const encrypted = cipher.update(secret.message)
-    const buffer = Buffer.concat([encrypted, cipher.final()])
-    needles.push(wordlist[ciphertext.length])
-    ciphertext += bs58.encode(buffer)
+  let headersBuffers: Buffer[] = []
+  let payloadBuffers: Buffer[] = []
+  let payloadStart = 0
+  for (const [index, secret] of secrets.entries()) {
+    const key = await kdf(secret.passphrase, salt.toString("base64"))
+    const payloadCipher = createCipheriv(algorithm, key, iv)
+    const payloadEncrypted = payloadCipher.update(secret.message)
+    const payloadBuffer = Buffer.concat([
+      payloadEncrypted,
+      payloadCipher.final(),
+    ])
+    const payloadBufferLength = payloadBuffer.length
+    const headersCipher = createCipheriv(algorithm, key, iv)
+    const headersEncrypted = headersCipher.update(
+      `${payloadStart}:${payloadBufferLength}`
+    )
+    const headersBuffer = Buffer.concat([
+      headersEncrypted,
+      headersCipher.final(),
+    ])
+    headersBuffers.push(headersBuffer)
+    payloadBuffers.push(payloadBuffer)
+    payloadStart += payloadBufferLength
+    if (!payloadSize && index === 0) {
+      payloadSize =
+        Math.ceil((payloadBuffers[0].toString("base64").length * 2) / 128) * 128
+    }
   }
-  const length = ciphertext.length
-  if (length > blockSize) {
-    throw new Error("Secrets too large for block size")
+  let payload = Buffer.concat(payloadBuffers).toString("base64")
+  const payloadLength = payload.length
+  if (payloadLength > payloadSize) {
+    throw new Error("Payload too large for payload size")
   }
-  ciphertext += bs58.encode(randomBytes(blockSize - length))
+  payloadBuffers.push(randomBytes((payloadSize - payloadLength) * 0.75))
+  payload = Buffer.concat(payloadBuffers).toString("base64")
+  let headers = Buffer.concat(headersBuffers).toString("base64")
+  const headersLength = headers.length
+  if (headersLength > headersSize) {
+    throw new Error("Headers too large for headers size")
+  }
+  headersBuffers.push(randomBytes((headersSize - headersLength) * 0.75))
+  headers = Buffer.concat(headersBuffers).toString("base64")
   return {
-    salt: bs58.encode(salt),
-    iv: bs58.encode(iv),
-    ciphertext: ciphertext.substring(0, blockSize),
-    needles: needles,
+    salt: salt.toString("base64"),
+    iv: iv.toString("base64"),
+    headers: headers,
+    payload: payload,
   }
 }
 
 /**
- * Decrypt secret
+ * Decrypt secret encrypted using BlockCrypt
  * @param passphrase passphrase
  * @param salt salt
  * @param iv initialization vector
- * @param ciphertext ciphertext
+ * @param headers headers
+ * @param payload payload
  * @param kdf key derivation function
- * @param needle optional, needle used to significantly speed up decryption
- * @returns secret
+ * @returns message
  */
 export const decrypt = async (
   passphrase: string,
   salt: string,
   iv: string,
-  ciphertext: string,
-  kdf: Kdf,
-  needle?: string
-): Promise<Fragment> => {
-  if (needle && !wordlist.includes(needle)) {
-    throw new Error("Needle not found")
-  }
+  headers: string,
+  payload: string,
+  kdf: Kdf
+): Promise<string> => {
   const key = await kdf(passphrase, salt)
-  let start = 0
-  let index: number | null
-  if (needle && (index = getNeedleIndex(needle))) {
-    start = index
-  }
-  let message: string | null = null
-  while (start < ciphertext.length) {
-    for (let end = ciphertext.length; end > start; end--) {
+  const headersBuffer = Buffer.from(headers, "base64")
+  const payloadBuffer = Buffer.from(payload, "base64")
+  let headerStart = 0
+  let header: string | null = null
+  while (headerStart < headersBuffer.length) {
+    for (
+      let headerEnd = headersBuffer.length;
+      headerEnd > headerStart;
+      headerEnd--
+    ) {
       try {
-        const decipher = createDecipheriv(
+        const headersDecipher = createDecipheriv(
           algorithm,
-          Buffer.from(key, "hex"),
-          bs58.decode(iv)
+          key,
+          Buffer.from(iv, "base64")
         )
-        const decrypted = decipher.update(
-          bs58.decode(ciphertext.substring(start, end))
+        const headersDecrypted = headersDecipher.update(
+          headersBuffer.subarray(headerStart, headerEnd)
         )
-        const buffer = Buffer.concat([decrypted, decipher.final()])
-        const string = buffer.toString()
+        const headerBuffer = Buffer.concat([
+          headersDecrypted,
+          headersDecipher.final(),
+        ])
+        const string = headerBuffer.toString()
         if (!string.match(/�/)) {
-          message = string
-          needle = wordlist[start]
+          header = string
         }
-        if (message) {
+        if (header) {
           break
         }
       } catch (error) {}
     }
-    if (message) {
+    if (header) {
       break
     }
-    start++
+    headerStart++
   }
-  if (!message) {
-    throw new Error("Secret not found")
+  if (!header) {
+    throw new Error("Header not found")
   }
-  return {
-    message,
-    needle,
-  }
+  try {
+    const payloadDecipher = createDecipheriv(
+      algorithm,
+      key,
+      Buffer.from(iv, "base64")
+    )
+    const [payloadStart, payloadLength] = header.split(":")
+    const payloadDecrypted = payloadDecipher.update(
+      payloadBuffer.subarray(
+        parseInt(payloadStart),
+        parseInt(payloadStart) + parseInt(payloadLength)
+      )
+    )
+    const headerBuffer = Buffer.concat([
+      payloadDecrypted,
+      payloadDecipher.final(),
+    ])
+    const secret = headerBuffer.toString()
+    if (!secret) {
+      throw new Error("Secret not found")
+    }
+    return secret
+  } catch (error) {}
 }
