@@ -1,5 +1,5 @@
 import { createHash } from "crypto"
-import { encrypt, decrypt, Secret } from "./index"
+import { encrypt, decrypt, getBlockSize, Secret } from "./index"
 
 const secrets: Secret[] = [
   {
@@ -29,6 +29,11 @@ const referenceIv = "u05uhhQe3NDtCf39rsxnig=="
 const referenceIvBuffer = Buffer.from(referenceIv, "base64")
 const referenceHeadersSignature = "ZYtwLEiUAXh+BCO31dT79JrK"
 const referencePayloadSignature = "FgsCYmyDsw1Sk3RzVFxml+Ys"
+
+test("gets block size of secret 1", async () => {
+  const blockSize = getBlockSize(secrets[0].message)
+  expect(blockSize).toEqual(216)
+})
 
 test("confirms block matches reference", async () => {
   const block = await encrypt(
@@ -75,12 +80,6 @@ test("fails to encrypt secrets using invalid headers size", async () => {
   }
 })
 
-test("encrypts secrets using unusual but valid headers size", async () => {
-  const headersSize = 120
-  const block = await encrypt(secrets, insecureKdf, headersSize)
-  expect(block.headers.length).toEqual(headersSize)
-})
-
 test("fails to encrypt secrets using headers size that is to small for headers", async () => {
   expect.assertions(1)
   try {
@@ -120,19 +119,32 @@ test("fails to encrypt secrets using default headers size that is to small for h
   }
 })
 
-test("fails to encrypt secrets using invalid payload size", async () => {
+test("encrypts secrets using unusual but valid headers size", async () => {
+  const headersSize = 120
+  const block = await encrypt(secrets, insecureKdf, headersSize)
+  expect(block.headers.length).toEqual(headersSize)
+})
+
+test("fails to encrypt secret 1 using invalid payload size", async () => {
   expect.assertions(1)
   try {
-    await encrypt(secrets, insecureKdf, null, 511)
+    const secret1 = secrets[0]
+    const blockSize = getBlockSize(secret1.message)
+    await encrypt([secret1], insecureKdf, null, blockSize - 1)
   } catch (error) {
     expect(error.message).toEqual("Invalid payload size")
   }
 })
 
-test("encrypts secrets using unusual but valid payload size", async () => {
-  const payloadSize = 1016
-  const block = await encrypt(secrets, insecureKdf, null, 1016)
-  expect(block.payload.length).toEqual(payloadSize)
+test("fails to encrypt secret 1 using minimum required payload size minus 8", async () => {
+  expect.assertions(1)
+  try {
+    const secret1 = secrets[0]
+    const blockSize = getBlockSize(secret1.message)
+    await encrypt([secret1], insecureKdf, 128, blockSize - 8)
+  } catch (error) {
+    expect(error.message).toEqual("Payload too large for payload size")
+  }
 })
 
 test("fails to encrypt secrets using payload size that is to small for payload", async () => {
@@ -166,6 +178,19 @@ test("fails to encrypt secrets using auto payload size that is to small for payl
   } catch (error) {
     expect(error.message).toEqual("Payload too large for payload size")
   }
+})
+
+test("encrypts secret 1 using minimum required payload size", async () => {
+  const secret1 = secrets[0]
+  const blockSize = getBlockSize(secret1.message)
+  const block = await encrypt([secret1], insecureKdf, 128, blockSize)
+  expect(block).toBeDefined()
+})
+
+test("encrypts secrets using unusual but valid payload size", async () => {
+  const payloadSize = 1016
+  const block = await encrypt(secrets, insecureKdf, null, payloadSize)
+  expect(block.payload.length).toEqual(payloadSize)
 })
 
 test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", async () => {

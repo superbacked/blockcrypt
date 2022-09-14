@@ -29,6 +29,20 @@ const validateSecrets = (secrets: Secret[]) => {
 }
 
 /**
+ * Get block size for message
+ * @param message message
+ * @returns block size
+ */
+export const getBlockSize = (message: string) => {
+  const buffer = Buffer.from(message)
+  // Simulate AES-256-CBC
+  const encryptedBufferLength = Math.ceil(buffer.length / 16) * 16
+  // Simulate Base64
+  const base64Length = ((4 * encryptedBufferLength) / 3 + 3) & ~3
+  return base64Length
+}
+
+/**
  * Encrypt secrets using BlockCrypt
  * @param secrets secrets
  * @param kdf key derivation function
