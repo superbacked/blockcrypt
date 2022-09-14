@@ -1,5 +1,5 @@
 import { createHash } from "crypto"
-import { encrypt, decrypt, getBlockSize, Secret } from "./index"
+import { encrypt, decrypt, getDataSize, Secret } from "./index"
 
 const secrets: Secret[] = [
   {
@@ -31,8 +31,8 @@ const referenceHeadersSignature = "ZYtwLEiUAXh+BCO31dT79JrK"
 const referenceDataSignature = "FgsCYmyDsw1Sk3RzVFxml+Ys"
 
 test("gets block size of secret 1", async () => {
-  const blockSize = getBlockSize(secrets[0].message)
-  expect(blockSize).toEqual(216)
+  const dataSize = getDataSize(secrets[0].message)
+  expect(dataSize).toEqual(216)
 })
 
 test("confirms block matches reference", async () => {
@@ -129,8 +129,8 @@ test("fails to encrypt secret 1 using invalid data size", async () => {
   expect.assertions(1)
   try {
     const secret1 = secrets[0]
-    const blockSize = getBlockSize(secret1.message)
-    await encrypt([secret1], insecureKdf, null, blockSize - 1)
+    const dataSize = getDataSize(secret1.message)
+    await encrypt([secret1], insecureKdf, null, dataSize - 1)
   } catch (error) {
     expect(error.message).toEqual("Invalid data size")
   }
@@ -140,8 +140,8 @@ test("fails to encrypt secret 1 using minimum required data size minus 8", async
   expect.assertions(1)
   try {
     const secret1 = secrets[0]
-    const blockSize = getBlockSize(secret1.message)
-    await encrypt([secret1], insecureKdf, 128, blockSize - 8)
+    const dataSize = getDataSize(secret1.message)
+    await encrypt([secret1], insecureKdf, 128, dataSize - 8)
   } catch (error) {
     expect(error.message).toEqual("Data too large for data size")
   }
@@ -182,8 +182,8 @@ test("fails to encrypt secrets using auto data size that is to small for data", 
 
 test("encrypts secret 1 using minimum required data size", async () => {
   const secret1 = secrets[0]
-  const blockSize = getBlockSize(secret1.message)
-  const block = await encrypt([secret1], insecureKdf, 128, blockSize)
+  const dataSize = getDataSize(secret1.message)
+  const block = await encrypt([secret1], insecureKdf, 128, dataSize)
   expect(block).toBeDefined()
 })
 

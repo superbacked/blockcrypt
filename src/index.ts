@@ -29,11 +29,11 @@ const validateSecrets = (secrets: Secret[]) => {
 }
 
 /**
- * Get block size for message
+ * Get data size of message
  * @param message message
- * @returns block size
+ * @returns data size
  */
-export const getBlockSize = (message: string) => {
+export const getDataSize = (message: string) => {
   const buffer = Buffer.from(message)
   // Simulate AES-256-CBC
   const encryptedBufferLength = Math.ceil(buffer.length / 16) * 16
