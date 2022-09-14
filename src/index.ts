@@ -13,7 +13,7 @@ export interface Block {
   salt: string
   iv: string
   headers: string
-  payload: string
+  data: string
 }
 
 const validateSecrets = (secrets: Secret[]) => {
@@ -47,7 +47,7 @@ export const getBlockSize = (message: string) => {
  * @param secrets secrets
  * @param kdf key derivation function
  * @param headersSize optional, headers size in increments of 8 (defaults to 128)
- * @param payloadSize optional, payload size in increments of 8 (defaults to first secret ciphertext buffer size * 2 rounded to nearest upper increment of 128)
+ * @param dataSize optional, data size in increments of 8 (defaults to first secret ciphertext buffer size * 2 rounded to nearest upper increment of 128)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
  * @returns block
@@ -56,7 +56,7 @@ export const encrypt = async (
   secrets: Secret[],
   kdf: Kdf,
   headersSize?: number,
-  payloadSize?: number,
+  dataSize?: number,
   salt?: Buffer,
   iv?: Buffer
 ): Promise<Block> => {
@@ -68,8 +68,8 @@ export const encrypt = async (
   } else if (!headersSize) {
     headersSize = 128
   }
-  if (payloadSize && payloadSize % 8 !== 0) {
-    throw new Error("Invalid payload size")
+  if (dataSize && dataSize % 8 !== 0) {
+    throw new Error("Invalid data size")
   }
   if (!salt) {
     salt = randomBytes(16)
@@ -78,40 +78,37 @@ export const encrypt = async (
     iv = randomBytes(16)
   }
   let headersBuffers: Buffer[] = []
-  let payloadBuffers: Buffer[] = []
-  let payloadStart = 0
+  let dataBuffers: Buffer[] = []
+  let dataStart = 0
   for (const [index, secret] of secrets.entries()) {
     const key = await kdf(secret.passphrase, salt.toString("base64"))
-    const payloadCipher = createCipheriv(algorithm, key, iv)
-    const payloadEncrypted = payloadCipher.update(secret.message)
-    const payloadBuffer = Buffer.concat([
-      payloadEncrypted,
-      payloadCipher.final(),
-    ])
-    const payloadBufferLength = payloadBuffer.length
+    const dataCipher = createCipheriv(algorithm, key, iv)
+    const dataEncrypted = dataCipher.update(secret.message)
+    const dataBuffer = Buffer.concat([dataEncrypted, dataCipher.final()])
+    const dataBufferLength = dataBuffer.length
     const headersCipher = createCipheriv(algorithm, key, iv)
     const headersEncrypted = headersCipher.update(
-      `${payloadStart}:${payloadBufferLength}`
+      `${dataStart}:${dataBufferLength}`
     )
     const headersBuffer = Buffer.concat([
       headersEncrypted,
       headersCipher.final(),
     ])
     headersBuffers.push(headersBuffer)
-    payloadBuffers.push(payloadBuffer)
-    payloadStart += payloadBufferLength
-    if (!payloadSize && index === 0) {
-      payloadSize =
-        Math.ceil((payloadBuffers[0].toString("base64").length * 2) / 128) * 128
+    dataBuffers.push(dataBuffer)
+    dataStart += dataBufferLength
+    if (!dataSize && index === 0) {
+      dataSize =
+        Math.ceil((dataBuffers[0].toString("base64").length * 2) / 128) * 128
     }
   }
-  let payload = Buffer.concat(payloadBuffers).toString("base64")
-  const payloadLength = payload.length
-  if (payloadLength > payloadSize) {
-    throw new Error("Payload too large for payload size")
+  let data = Buffer.concat(dataBuffers).toString("base64")
+  const dataLength = data.length
+  if (dataLength > dataSize) {
+    throw new Error("Data too large for data size")
   }
-  payloadBuffers.push(randomBytes((payloadSize - payloadLength) * 0.75))
-  payload = Buffer.concat(payloadBuffers).toString("base64")
+  dataBuffers.push(randomBytes((dataSize - dataLength) * 0.75))
+  data = Buffer.concat(dataBuffers).toString("base64")
   let headers = Buffer.concat(headersBuffers).toString("base64")
   const headersLength = headers.length
   if (headersLength > headersSize) {
@@ -123,7 +120,7 @@ export const encrypt = async (
     salt: salt.toString("base64"),
     iv: iv.toString("base64"),
     headers: headers,
-    payload: payload,
+    data: data,
   }
 }
 
@@ -133,7 +130,7 @@ export const encrypt = async (
  * @param salt salt
  * @param iv initialization vector
  * @param headers headers
- * @param payload payload
+ * @param data data
  * @param kdf key derivation function
  * @returns message
  */
@@ -142,12 +139,12 @@ export const decrypt = async (
   salt: string,
   iv: string,
   headers: string,
-  payload: string,
+  data: string,
   kdf: Kdf
 ): Promise<string> => {
   const key = await kdf(passphrase, salt)
   const headersBuffer = Buffer.from(headers, "base64")
-  const payloadBuffer = Buffer.from(payload, "base64")
+  const dataBuffer = Buffer.from(data, "base64")
   let headerStart = 0
   let header: string | null = null
   while (headerStart < headersBuffer.length) {
@@ -187,22 +184,19 @@ export const decrypt = async (
     throw new Error("Header not found")
   }
   try {
-    const payloadDecipher = createDecipheriv(
+    const dataDecipher = createDecipheriv(
       algorithm,
       key,
       Buffer.from(iv, "base64")
     )
-    const [payloadStart, payloadLength] = header.split(":")
-    const payloadDecrypted = payloadDecipher.update(
-      payloadBuffer.subarray(
-        parseInt(payloadStart),
-        parseInt(payloadStart) + parseInt(payloadLength)
+    const [dataStart, dataLength] = header.split(":")
+    const dataDecrypted = dataDecipher.update(
+      dataBuffer.subarray(
+        parseInt(dataStart),
+        parseInt(dataStart) + parseInt(dataLength)
       )
     )
-    const headerBuffer = Buffer.concat([
-      payloadDecrypted,
-      payloadDecipher.final(),
-    ])
+    const headerBuffer = Buffer.concat([dataDecrypted, dataDecipher.final()])
     const secret = headerBuffer.toString()
     if (!secret) {
       throw new Error("Secret not found")

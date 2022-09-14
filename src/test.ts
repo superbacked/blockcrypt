@@ -28,7 +28,7 @@ const referenceSaltBuffer = Buffer.from(referenceSalt, "base64")
 const referenceIv = "u05uhhQe3NDtCf39rsxnig=="
 const referenceIvBuffer = Buffer.from(referenceIv, "base64")
 const referenceHeadersSignature = "ZYtwLEiUAXh+BCO31dT79JrK"
-const referencePayloadSignature = "FgsCYmyDsw1Sk3RzVFxml+Ys"
+const referenceDataSignature = "FgsCYmyDsw1Sk3RzVFxml+Ys"
 
 test("gets block size of secret 1", async () => {
   const blockSize = getBlockSize(secrets[0].message)
@@ -48,8 +48,8 @@ test("confirms block matches reference", async () => {
   expect(block.iv).toEqual(referenceIv)
   expect(block.headers.length).toEqual(128)
   expect(block.headers.substring(0, 24)).toEqual(referenceHeadersSignature)
-  expect(block.payload.length).toEqual(512)
-  expect(block.payload.substring(0, 24)).toEqual(referencePayloadSignature)
+  expect(block.data.length).toEqual(512)
+  expect(block.data.substring(0, 24)).toEqual(referenceDataSignature)
 })
 
 test("fails to encrypt no secrets", async () => {
@@ -125,38 +125,38 @@ test("encrypts secrets using unusual but valid headers size", async () => {
   expect(block.headers.length).toEqual(headersSize)
 })
 
-test("fails to encrypt secret 1 using invalid payload size", async () => {
+test("fails to encrypt secret 1 using invalid data size", async () => {
   expect.assertions(1)
   try {
     const secret1 = secrets[0]
     const blockSize = getBlockSize(secret1.message)
     await encrypt([secret1], insecureKdf, null, blockSize - 1)
   } catch (error) {
-    expect(error.message).toEqual("Invalid payload size")
+    expect(error.message).toEqual("Invalid data size")
   }
 })
 
-test("fails to encrypt secret 1 using minimum required payload size minus 8", async () => {
+test("fails to encrypt secret 1 using minimum required data size minus 8", async () => {
   expect.assertions(1)
   try {
     const secret1 = secrets[0]
     const blockSize = getBlockSize(secret1.message)
     await encrypt([secret1], insecureKdf, 128, blockSize - 8)
   } catch (error) {
-    expect(error.message).toEqual("Payload too large for payload size")
+    expect(error.message).toEqual("Data too large for data size")
   }
 })
 
-test("fails to encrypt secrets using payload size that is to small for payload", async () => {
+test("fails to encrypt secrets using data size that is to small for data", async () => {
   expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, null, 256)
   } catch (error) {
-    expect(error.message).toEqual("Payload too large for payload size")
+    expect(error.message).toEqual("Data too large for data size")
   }
 })
 
-test("fails to encrypt secrets using auto payload size that is to small for payload", async () => {
+test("fails to encrypt secrets using auto data size that is to small for data", async () => {
   expect.assertions(1)
   try {
     await encrypt(
@@ -176,21 +176,21 @@ test("fails to encrypt secrets using auto payload size that is to small for payl
       insecureKdf
     )
   } catch (error) {
-    expect(error.message).toEqual("Payload too large for payload size")
+    expect(error.message).toEqual("Data too large for data size")
   }
 })
 
-test("encrypts secret 1 using minimum required payload size", async () => {
+test("encrypts secret 1 using minimum required data size", async () => {
   const secret1 = secrets[0]
   const blockSize = getBlockSize(secret1.message)
   const block = await encrypt([secret1], insecureKdf, 128, blockSize)
   expect(block).toBeDefined()
 })
 
-test("encrypts secrets using unusual but valid payload size", async () => {
-  const payloadSize = 1016
-  const block = await encrypt(secrets, insecureKdf, null, payloadSize)
-  expect(block.payload.length).toEqual(payloadSize)
+test("encrypts secrets using unusual but valid data size", async () => {
+  const dataSize = 1016
+  const block = await encrypt(secrets, insecureKdf, null, dataSize)
+  expect(block.data.length).toEqual(dataSize)
 })
 
 test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", async () => {
@@ -202,7 +202,7 @@ test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", as
       block.salt,
       block.iv,
       block.headers,
-      block.payload,
+      block.data,
       insecureKdf
     )
   } catch (error) {
@@ -217,7 +217,7 @@ test("encrypts secrets and decrypts secret 1", async () => {
     block.salt,
     block.iv,
     block.headers,
-    block.payload,
+    block.data,
     insecureKdf
   )
   expect(secret).toEqual(secrets[0].message)
@@ -230,7 +230,7 @@ test("encrypts secrets and decrypts secret 2", async () => {
     block.salt,
     block.iv,
     block.headers,
-    block.payload,
+    block.data,
     insecureKdf
   )
   expect(secret).toEqual(secrets[1].message)
@@ -243,7 +243,7 @@ test("encrypts secrets and decrypts secret 3", async () => {
     block.salt,
     block.iv,
     block.headers,
-    block.payload,
+    block.data,
     insecureKdf
   )
   expect(secret).toEqual(secrets[2].message)
