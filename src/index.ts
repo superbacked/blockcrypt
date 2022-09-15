@@ -34,12 +34,12 @@ const validateSecrets = (secrets: Secret[]) => {
  * @returns data length
  */
 export const getDataLength = (message: string) => {
-  const buffer = Buffer.from(message)
-  // Simulate AES-256-CBC
-  const encryptedBufferLength = Math.ceil(buffer.length / 16) * 16
-  // Simulate Base64
-  const base64Length = ((4 * encryptedBufferLength) / 3 + 3) & ~3
-  return base64Length
+  const key = randomBytes(32)
+  const iv = randomBytes(16)
+  const cipher = createCipheriv(algorithm, key, iv)
+  const encrypted = cipher.update(message)
+  const buffer = Buffer.concat([encrypted, cipher.final()])
+  return buffer.toString("base64").length
 }
 
 /**
