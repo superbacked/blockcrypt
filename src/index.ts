@@ -29,11 +29,11 @@ const validateSecrets = (secrets: Secret[]) => {
 }
 
 /**
- * Get data size of message
+ * Get data length of message
  * @param message message
- * @returns data size
+ * @returns data length
  */
-export const getDataSize = (message: string) => {
+export const getDataLength = (message: string) => {
   const buffer = Buffer.from(message)
   // Simulate AES-256-CBC
   const encryptedBufferLength = Math.ceil(buffer.length / 16) * 16
@@ -46,8 +46,8 @@ export const getDataSize = (message: string) => {
  * Encrypt secrets using Blockcrypt
  * @param secrets secrets
  * @param kdf key derivation function
- * @param headersSize optional, headers size in increments of 8 (defaults to 128)
- * @param dataSize optional, data size in increments of 8 (defaults to first secret ciphertext buffer size * 2 rounded to nearest upper increment of 128)
+ * @param headersLength optional, headers length in increments of 8 (defaults to 128)
+ * @param dataLength optional, data length in increments of 8 (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of 128)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
  * @returns block
@@ -55,21 +55,21 @@ export const getDataSize = (message: string) => {
 export const encrypt = async (
   secrets: Secret[],
   kdf: Kdf,
-  headersSize?: number,
-  dataSize?: number,
+  headersLength?: number,
+  dataLength?: number,
   salt?: Buffer,
   iv?: Buffer
 ): Promise<Block> => {
   if (!validateSecrets(secrets)) {
     throw new Error("Invalid secrets")
   }
-  if (headersSize && headersSize % 8 !== 0) {
-    throw new Error("Invalid headers size")
-  } else if (!headersSize) {
-    headersSize = 128
+  if (headersLength && headersLength % 8 !== 0) {
+    throw new Error("Invalid headers length")
+  } else if (!headersLength) {
+    headersLength = 128
   }
-  if (dataSize && dataSize % 8 !== 0) {
-    throw new Error("Invalid data size")
+  if (dataLength && dataLength % 8 !== 0) {
+    throw new Error("Invalid data length")
   }
   if (!salt) {
     salt = randomBytes(16)
@@ -97,24 +97,26 @@ export const encrypt = async (
     headersBuffers.push(headersBuffer)
     dataBuffers.push(dataBuffer)
     dataStart += dataBufferLength
-    if (!dataSize && index === 0) {
-      dataSize =
+    if (!dataLength && index === 0) {
+      dataLength =
         Math.ceil((dataBuffers[0].toString("base64").length * 2) / 128) * 128
     }
   }
   let data = Buffer.concat(dataBuffers).toString("base64")
-  const dataLength = data.length
-  if (dataLength > dataSize) {
-    throw new Error("Data too large for data size")
+  const unpaddedDataLength = data.length
+  if (unpaddedDataLength > dataLength) {
+    throw new Error("Data too long for data length")
   }
-  dataBuffers.push(randomBytes((dataSize - dataLength) * 0.75))
+  dataBuffers.push(randomBytes((dataLength - unpaddedDataLength) * 0.75))
   data = Buffer.concat(dataBuffers).toString("base64")
   let headers = Buffer.concat(headersBuffers).toString("base64")
-  const headersLength = headers.length
-  if (headersLength > headersSize) {
-    throw new Error("Headers too large for headers size")
+  const unpaddedHeadersLength = headers.length
+  if (unpaddedHeadersLength > headersLength) {
+    throw new Error("Headers too long for headers length")
   }
-  headersBuffers.push(randomBytes((headersSize - headersLength) * 0.75))
+  headersBuffers.push(
+    randomBytes((headersLength - unpaddedHeadersLength) * 0.75)
+  )
   headers = Buffer.concat(headersBuffers).toString("base64")
   return {
     salt: salt.toString("base64"),

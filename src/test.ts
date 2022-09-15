@@ -1,5 +1,5 @@
 import { createHash } from "crypto"
-import { encrypt, decrypt, getDataSize, Secret } from "./index"
+import { encrypt, decrypt, getDataLength, Secret } from "./index"
 
 const secrets: Secret[] = [
   {
@@ -30,9 +30,9 @@ const referenceIvBuffer = Buffer.from(referenceIv, "base64")
 const referenceHeadersSignature = "ZYtwLEiUAXh+BCO31dT79JrK"
 const referenceDataSignature = "FgsCYmyDsw1Sk3RzVFxml+Ys"
 
-test("gets block size of secret 1", async () => {
-  const dataSize = getDataSize(secrets[0].message)
-  expect(dataSize).toEqual(216)
+test("gets data length of secret 1", async () => {
+  const dataLength = getDataLength(secrets[0].message)
+  expect(dataLength).toEqual(216)
 })
 
 test("confirms block matches reference", async () => {
@@ -71,25 +71,25 @@ test("fails to encrypt invalid secrets", async () => {
   }
 })
 
-test("fails to encrypt secrets using invalid headers size", async () => {
+test("fails to encrypt secrets using invalid headers length", async () => {
   expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, 127)
   } catch (error) {
-    expect(error.message).toEqual("Invalid headers size")
+    expect(error.message).toEqual("Invalid headers length")
   }
 })
 
-test("fails to encrypt secrets using headers size that is to small for headers", async () => {
+test("fails to encrypt secrets using headers length that is to short for headers", async () => {
   expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, 32)
   } catch (error) {
-    expect(error.message).toEqual("Headers too large for headers size")
+    expect(error.message).toEqual("Headers too long for headers length")
   }
 })
 
-test("fails to encrypt secrets using default headers size that is to small for headers", async () => {
+test("fails to encrypt secrets using default headers length that is to short for headers", async () => {
   expect.assertions(1)
   try {
     await encrypt(
@@ -115,48 +115,48 @@ test("fails to encrypt secrets using default headers size that is to small for h
       insecureKdf
     )
   } catch (error) {
-    expect(error.message).toEqual("Headers too large for headers size")
+    expect(error.message).toEqual("Headers too long for headers length")
   }
 })
 
-test("encrypts secrets using unusual but valid headers size", async () => {
-  const headersSize = 120
-  const block = await encrypt(secrets, insecureKdf, headersSize)
-  expect(block.headers.length).toEqual(headersSize)
+test("encrypts secrets using unusual but valid headers length", async () => {
+  const headersLength = 120
+  const block = await encrypt(secrets, insecureKdf, headersLength)
+  expect(block.headers.length).toEqual(headersLength)
 })
 
-test("fails to encrypt secret 1 using invalid data size", async () => {
+test("fails to encrypt secret 1 using invalid data length", async () => {
   expect.assertions(1)
   try {
     const secret1 = secrets[0]
-    const dataSize = getDataSize(secret1.message)
-    await encrypt([secret1], insecureKdf, null, dataSize - 1)
+    const dataLength = getDataLength(secret1.message)
+    await encrypt([secret1], insecureKdf, null, dataLength - 1)
   } catch (error) {
-    expect(error.message).toEqual("Invalid data size")
+    expect(error.message).toEqual("Invalid data length")
   }
 })
 
-test("fails to encrypt secret 1 using minimum required data size minus 8", async () => {
+test("fails to encrypt secret 1 using minimum required data length minus 8", async () => {
   expect.assertions(1)
   try {
     const secret1 = secrets[0]
-    const dataSize = getDataSize(secret1.message)
-    await encrypt([secret1], insecureKdf, 128, dataSize - 8)
+    const dataLength = getDataLength(secret1.message)
+    await encrypt([secret1], insecureKdf, 128, dataLength - 8)
   } catch (error) {
-    expect(error.message).toEqual("Data too large for data size")
+    expect(error.message).toEqual("Data too long for data length")
   }
 })
 
-test("fails to encrypt secrets using data size that is to small for data", async () => {
+test("fails to encrypt secrets using data length that is to short for data", async () => {
   expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, null, 256)
   } catch (error) {
-    expect(error.message).toEqual("Data too large for data size")
+    expect(error.message).toEqual("Data too long for data length")
   }
 })
 
-test("fails to encrypt secrets using auto data size that is to small for data", async () => {
+test("fails to encrypt secrets using auto data length that is to short for data", async () => {
   expect.assertions(1)
   try {
     await encrypt(
@@ -176,21 +176,21 @@ test("fails to encrypt secrets using auto data size that is to small for data", 
       insecureKdf
     )
   } catch (error) {
-    expect(error.message).toEqual("Data too large for data size")
+    expect(error.message).toEqual("Data too long for data length")
   }
 })
 
-test("encrypts secret 1 using minimum required data size", async () => {
+test("encrypts secret 1 using minimum required data length", async () => {
   const secret1 = secrets[0]
-  const dataSize = getDataSize(secret1.message)
-  const block = await encrypt([secret1], insecureKdf, 128, dataSize)
+  const dataLength = getDataLength(secret1.message)
+  const block = await encrypt([secret1], insecureKdf, 128, dataLength)
   expect(block).toBeDefined()
 })
 
-test("encrypts secrets using unusual but valid data size", async () => {
-  const dataSize = 1016
-  const block = await encrypt(secrets, insecureKdf, null, dataSize)
-  expect(block.data.length).toEqual(dataSize)
+test("encrypts secrets using unusual but valid data length", async () => {
+  const dataLength = 1016
+  const block = await encrypt(secrets, insecureKdf, null, dataLength)
+  expect(block.data.length).toEqual(dataLength)
 })
 
 test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", async () => {
