@@ -27,12 +27,11 @@ const referenceSalt = "Com4/aFtBjaGdvbjgi5UNw=="
 const referenceSaltBuffer = Buffer.from(referenceSalt, "base64")
 const referenceIv = "u05uhhQe3NDtCf39rsxnig=="
 const referenceIvBuffer = Buffer.from(referenceIv, "base64")
-const referenceHeadersSignature = "ZYtwLEiUAXh+BCO31dT79JrK"
-const referenceDataSignature = "FgsCYmyDsw1Sk3RzVFxml+Ys"
+const referenceHeadersSignature = "g2a/fztnusowrRuY0HMQo4ct"
 
 test("gets data length of secret 1", async () => {
   const dataLength = getDataLength(secrets[0].message)
-  expect(dataLength).toEqual(216)
+  expect(dataLength).toEqual(248)
 })
 
 test("confirms block matches reference", async () => {
@@ -49,7 +48,6 @@ test("confirms block matches reference", async () => {
   expect(block.headers.length).toEqual(128)
   expect(block.headers.substring(0, 24)).toEqual(referenceHeadersSignature)
   expect(block.data.length).toEqual(512)
-  expect(block.data.substring(0, 24)).toEqual(referenceDataSignature)
 })
 
 test("fails to encrypt no secrets", async () => {
@@ -96,19 +94,19 @@ test("fails to encrypt secrets using default headers length that is to short for
       [].concat(
         ...secrets,
         {
-          message: "one",
+          message: "a",
           passphrase: "mousy ditch pull prize stall",
         },
         {
-          message: "two",
+          message: "b",
           passphrase: "lurk entry clip tidal cinch",
         },
         {
-          message: "three",
+          message: "c",
           passphrase: "geek skid last stays shout",
         },
         {
-          message: "four",
+          message: "d",
           passphrase: "aroma feed user wing darn",
         }
       ),
@@ -183,7 +181,7 @@ test("fails to encrypt secrets using auto data length that is to short for data"
 test("encrypts secret 1 using minimum required data length", async () => {
   const secret1 = secrets[0]
   const dataLength = getDataLength(secret1.message)
-  const block = await encrypt([secret1], insecureKdf, 128, dataLength)
+  const block = await encrypt([secret1], insecureKdf, null, dataLength)
   expect(block).toBeDefined()
 })
 

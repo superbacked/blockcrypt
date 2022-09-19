@@ -1,7 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
 
-const algorithm = "aes-256-cbc"
-
 export interface Secret {
   message: string
   passphrase: string
@@ -35,10 +33,12 @@ const validateSecrets = (secrets: Secret[]) => {
  */
 export const getDataLength = (message: string) => {
   const key = randomBytes(32)
-  const iv = randomBytes(16)
-  const cipher = createCipheriv(algorithm, key, iv)
-  const encrypted = cipher.update(message)
-  const buffer = Buffer.concat([encrypted, cipher.final()])
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", key, iv)
+  const enciphered = cipher.update(message)
+  const encipheredFinal = Buffer.concat([enciphered, cipher.final()])
+  const authTag = cipher.getAuthTag()
+  const buffer = Buffer.concat([encipheredFinal, iv, authTag])
   return buffer.toString("base64").length
 }
 
@@ -82,24 +82,30 @@ export const encrypt = async (
   let dataStart = 0
   for (const [index, secret] of secrets.entries()) {
     const key = await kdf(secret.passphrase, salt.toString("base64"))
-    const dataCipher = createCipheriv(algorithm, key, iv)
-    const dataEncrypted = dataCipher.update(secret.message)
-    const dataBuffer = Buffer.concat([dataEncrypted, dataCipher.final()])
-    const dataBufferLength = dataBuffer.length
-    const headersCipher = createCipheriv(algorithm, key, iv)
-    const headersEncrypted = headersCipher.update(
-      `${dataStart}:${dataBufferLength}`
+    const dataIv = randomBytes(12)
+    const dataCipher = createCipheriv("aes-256-gcm", key, dataIv)
+    const dataEnciphered = dataCipher.update(secret.message)
+    const dataEncipheredFinal = Buffer.concat([
+      dataEnciphered,
+      dataCipher.final(),
+    ])
+    const dataAuthTag = dataCipher.getAuthTag()
+    const dataEncipheredFinalLength = dataEncipheredFinal.length
+    const headersCipher = createCipheriv("aes-256-cbc", key, iv)
+    const headersEnciphered = headersCipher.update(
+      `${dataStart}:${dataEncipheredFinalLength}`
     )
-    const headersBuffer = Buffer.concat([
-      headersEncrypted,
+    const headersEncipheredFinal = Buffer.concat([
+      headersEnciphered,
       headersCipher.final(),
     ])
-    headersBuffers.push(headersBuffer)
+    headersBuffers.push(headersEncipheredFinal)
+    const dataBuffer = Buffer.concat([dataEncipheredFinal, dataIv, dataAuthTag])
     dataBuffers.push(dataBuffer)
-    dataStart += dataBufferLength
+    dataStart += dataBuffer.length
     if (!dataLength && index === 0) {
       dataLength =
-        Math.ceil((dataBuffers[0].toString("base64").length * 2) / 128) * 128
+        Math.ceil((dataBuffer.toString("base64").length * 2) / 128) * 128
     }
   }
   let data = Buffer.concat(dataBuffers).toString("base64")
@@ -157,19 +163,19 @@ export const decrypt = async (
     ) {
       try {
         const headersDecipher = createDecipheriv(
-          algorithm,
+          "aes-256-cbc",
           key,
           Buffer.from(iv, "base64")
         )
-        const headersDecrypted = headersDecipher.update(
+        const headersDeciphered = headersDecipher.update(
           headersBuffer.subarray(headerStart, headerEnd)
         )
-        const headerBuffer = Buffer.concat([
-          headersDecrypted,
+        const headerDecipheredFinal = Buffer.concat([
+          headersDeciphered,
           headersDecipher.final(),
         ])
-        const string = headerBuffer.toString()
-        if (!string.match(/�/)) {
+        const string = headerDecipheredFinal.toString()
+        if (string.match(/^[0-9]+:[0-9]+$/)) {
           header = string
         }
         if (header) {
@@ -185,24 +191,29 @@ export const decrypt = async (
   if (!header) {
     throw new Error("Header not found")
   }
-  try {
-    const dataDecipher = createDecipheriv(
-      algorithm,
-      key,
-      Buffer.from(iv, "base64")
-    )
-    const [dataStart, dataLength] = header.split(":")
-    const dataDecrypted = dataDecipher.update(
-      dataBuffer.subarray(
-        parseInt(dataStart),
-        parseInt(dataStart) + parseInt(dataLength)
-      )
-    )
-    const headerBuffer = Buffer.concat([dataDecrypted, dataDecipher.final()])
-    const secret = headerBuffer.toString()
-    if (!secret) {
-      throw new Error("Secret not found")
-    }
-    return secret
-  } catch (error) {}
+  const [dataEncipheredFinalStart, dataEncipheredFinalLength] =
+    header.split(":")
+  const dataEncipheredFinalEnd =
+    parseInt(dataEncipheredFinalStart) + parseInt(dataEncipheredFinalLength)
+  const dataEncipheredFinal = dataBuffer.subarray(
+    parseInt(dataEncipheredFinalStart),
+    dataEncipheredFinalEnd
+  )
+  const dataIvStart = dataEncipheredFinalEnd
+  const dataIvEnd = dataIvStart + 12
+  const dataIv = dataBuffer.subarray(dataIvStart, dataIvEnd)
+  const dataAuthTagStart = dataIvEnd
+  const dataAuthTag = dataBuffer.subarray(
+    dataAuthTagStart,
+    dataAuthTagStart + 16
+  )
+  const dataDecipher = createDecipheriv("aes-256-gcm", key, dataIv)
+  dataDecipher.setAuthTag(dataAuthTag)
+  const dataDeciphered = dataDecipher.update(dataEncipheredFinal)
+  const dataDecipheredFinal = Buffer.concat([
+    dataDeciphered,
+    dataDecipher.final(),
+  ])
+  const message = dataDecipheredFinal.toString()
+  return message
 }
