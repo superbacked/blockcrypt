@@ -12,7 +12,7 @@ const secrets: Secret[] = [
     passphrase: "grunt daisy chow barge pants",
   },
   {
-    message: "yo",
+    message: Buffer.from("yo"),
     passphrase: "decor gooey wish kept pug",
   },
 ]
@@ -29,8 +29,13 @@ const referenceIv = "u05uhhQe3NDtCf39rsxnig=="
 const referenceIvBuffer = Buffer.from(referenceIv, "base64")
 const referenceHeadersSignature = "g2a/fztnusowrRuY0HMQo4ct"
 
-test("gets data length of secret 1", async () => {
-  const dataLength = getDataLength(secrets[0].message)
+test("gets data length of secret 1 as string", async () => {
+  const dataLength = getDataLength(Buffer.from(secrets[0].message))
+  expect(dataLength).toEqual(248)
+})
+
+test("gets data length of secret 1 as buffer", async () => {
+  const dataLength = getDataLength(Buffer.from(secrets[0].message))
   expect(dataLength).toEqual(248)
 })
 
@@ -208,6 +213,25 @@ test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", as
   }
 })
 
+test("encrypts secrets and fails to decrypt secret 1 using invalid output format", async () => {
+  expect.assertions(1)
+  try {
+    const block = await encrypt(secrets, insecureKdf)
+    await decrypt(
+      "foo",
+      block.salt,
+      block.iv,
+      block.headers,
+      block.data,
+      insecureKdf,
+      //@ts-ignore
+      "foo"
+    )
+  } catch (error) {
+    expect(error.message).toEqual("Invalid output format")
+  }
+})
+
 test("encrypts secrets and decrypts secret 1", async () => {
   const block = await encrypt(secrets, insecureKdf)
   const secret = await decrypt(
@@ -242,7 +266,8 @@ test("encrypts secrets and decrypts secret 3", async () => {
     block.iv,
     block.headers,
     block.data,
-    insecureKdf
+    insecureKdf,
+    "buffer"
   )
   expect(secret).toEqual(secrets[2].message)
 })

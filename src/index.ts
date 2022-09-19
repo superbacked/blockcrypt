@@ -1,7 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
 
+export type Message = Buffer | string
+
 export interface Secret {
-  message: string
+  message: Message
   passphrase: string
 }
 
@@ -31,7 +33,7 @@ const validateSecrets = (secrets: Secret[]) => {
  * @param message message
  * @returns data length
  */
-export const getDataLength = (message: string) => {
+export const getDataLength = (message: Message) => {
   const key = randomBytes(32)
   const iv = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", key, iv)
@@ -140,6 +142,7 @@ export const encrypt = async (
  * @param headers headers
  * @param data data
  * @param kdf key derivation function
+ * @param output optional, output format (defaults to string)
  * @returns message
  */
 export const decrypt = async (
@@ -148,8 +151,12 @@ export const decrypt = async (
   iv: string,
   headers: string,
   data: string,
-  kdf: Kdf
-): Promise<string> => {
+  kdf: Kdf,
+  output: "buffer" | "string" = "string"
+): Promise<Message> => {
+  if (!["buffer", "string"].includes(output)) {
+    throw new Error("Invalid output format")
+  }
   const key = await kdf(passphrase, salt)
   const headersBuffer = Buffer.from(headers, "base64")
   const dataBuffer = Buffer.from(data, "base64")
@@ -214,6 +221,7 @@ export const decrypt = async (
     dataDeciphered,
     dataDecipher.final(),
   ])
-  const message = dataDecipheredFinal.toString()
+  const message =
+    output === "buffer" ? dataDecipheredFinal : dataDecipheredFinal.toString()
   return message
 }

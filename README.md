@@ -13,7 +13,7 @@ $ npm install blockcrypt
 ## Usage (simplified for demonstration purposes)
 
 ```typescript
-import { encrypt, decrypt, Secret } from "./index.js"
+import { encrypt, decrypt, Secret } from "blockcrypt"
 
 const secrets: Secret[] = [
   {
@@ -26,7 +26,7 @@ const secrets: Secret[] = [
     passphrase: "grunt daisy chow barge pants",
   },
   {
-    message: "yo",
+    message: Buffer.from("yo"),
     passphrase: "decor gooey wish kept pug",
   },
 ]
