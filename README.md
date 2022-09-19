@@ -31,20 +31,22 @@ const secrets: Secret[] = [
   },
 ]
 
+// Update example below
+
 const block = await encrypt(secrets, kdf)
 // {
 //   salt: 'Com4/aFtBjaGdvbjgi5UNw==',
 //   iv: 'u05uhhQe3NDtCf39rsxnig==',
-//   headers: 'ZYtwLEiUAXh+BCO31dT79JrKb5AlZ/94wwYG9b/T1JKH0CAZckJsl+v8x7Xr2t8zVOXLMWFoTncNbWblZj6g5PkswLqTlJY8uytKI8NilmVG23STxto9ZdZnlWbdP3BQ',
-//   data: 'FgsCYmyDsw1Sk3RzVFxml+YsB5D9656V8Ngk4hoIb57EXfx7UImXOz0dCpAZ5jOl3tli5pU9PC7tEWItMy3j9n9sb1W+x8R3sQzrMp6stdcSMKyOlBP5pCsFHUec9MQb1xyZwwOBlgw7VMMSpkH+dVKMFj/0RapnjpymHAVecY3m7YyOcFDG8Cl+jcqfeVcmb53cW7/B+oaPG+5810gcpscK7ioio7a+TeJU9BKjYfCA0voXF9gTFA6XfRrC9f1sXhdJKms8AsuY6/UoA5h+lUJkKdaHnhvJCqa4ta8Po1iDJ4MTdwuzIp7guRDp46JyBprjkP0A4o0PUB42ycQVoO8v5v+7Lql0Yr8caZRfDZMn77XVZ0q/fvDsr8UC/C5G5mFmS68G2XyyPYIknCxcD2Xp3ULhlXBbg5rYbyogpbYGxURaHXMQ3QfrsGaA4swAGOxGDPQhGdINwW+4+153glrUNXKRj6o0LxgWF6uknZwSpOrAOUVApr/zoS2qmg=='
+//   headers: 'g2a/fztnusowrRuY0HMQo4ctZd74Mnh30P5AR9HWBawUCBbAAnkWAbpt+gx59eIlh1h7sVdFWrRoxpIlmtKBE2jkixnZBlPMEE0pKqA4MoMolEOer/DfWg6LbMhSMqen',
+//   data: '+S9sn/cq8SqLz2gh9tcmlVZLG3F0I6UaXobM5czus7k/J5mcgqzvcVVCAFdCdUxgXhtAr/tcVlOENAub8nEHxYgKEpSMBjfg+O21SbtnRT2Kn9E4XJlvrwwk1faEMH5PI0DZwaSi5mMJ5QIWnK56wDQVL8YAeF7WqojJ9v2EWcP00zi7LB02N22EN3B3cR3Azej+s2m9Atz++NSKnuAeNBYor8kbKdwkKUPfbf7UKM6kBpRAueBz4fX0D3mXmu7TVo6LGIDbGoZKa0SFmXPVLmGR23hX8LgFBP0l9kWqSQ8Se1iPuSm9PEwurF9Tkb6AjWQRmOtwuOTyANJ4bXSANcAOtlsIA5LBqjci+FgVxOpk3KIaqO1GfG84Ax9oHzqZGVvK3oydTJDt1SczXIGnUY/D6rOct82ZPgnEz8Fw403Xy5CyaxZO0cLMVxfzj4qGC6x9EkLF20OQ2+cobu4qTda0uOdcJ9bsqVEz4W++AhesNF/klkd+MCBF+9wMxg=='
 // }
 
 const secret = await decrypt(
   "grunt daisy chow barge pants",
   "Com4/aFtBjaGdvbjgi5UNw==",
   "u05uhhQe3NDtCf39rsxnig==",
-  "ZYtwLEiUAXh+BCO31dT79JrKb5AlZ/94wwYG9b/T1JKH0CAZckJsl+v8x7Xr2t8zVOXLMWFoTncNbWblZj6g5PkswLqTlJY8uytKI8NilmVG23STxto9ZdZnlWbdP3BQ",
-  "FgsCYmyDsw1Sk3RzVFxml+YsB5D9656V8Ngk4hoIb57EXfx7UImXOz0dCpAZ5jOl3tli5pU9PC7tEWItMy3j9n9sb1W+x8R3sQzrMp6stdcSMKyOlBP5pCsFHUec9MQb1xyZwwOBlgw7VMMSpkH+dVKMFj/0RapnjpymHAVecY3m7YyOcFDG8Cl+jcqfeVcmb53cW7/B+oaPG+5810gcpscK7ioio7a+TeJU9BKjYfCA0voXF9gTFA6XfRrC9f1sXhdJKms8AsuY6/UoA5h+lUJkKdaHnhvJCqa4ta8Po1iDJ4MTdwuzIp7guRDp46JyBprjkP0A4o0PUB42ycQVoO8v5v+7Lql0Yr8caZRfDZMn77XVZ0q/fvDsr8UC/C5G5mFmS68G2XyyPYIknCxcD2Xp3ULhlXBbg5rYbyogpbYGxURaHXMQ3QfrsGaA4swAGOxGDPQhGdINwW+4+153glrUNXKRj6o0LxgWF6uknZwSpOrAOUVApr/zoS2qmg==",
+  "g2a/fztnusowrRuY0HMQo4ctZd74Mnh30P5AR9HWBawUCBbAAnkWAbpt+gx59eIlh1h7sVdFWrRoxpIlmtKBE2jkixnZBlPMEE0pKqA4MoMolEOer/DfWg6LbMhSMqen",
+  "+S9sn/cq8SqLz2gh9tcmlVZLG3F0I6UaXobM5czus7k/J5mcgqzvcVVCAFdCdUxgXhtAr/tcVlOENAub8nEHxYgKEpSMBjfg+O21SbtnRT2Kn9E4XJlvrwwk1faEMH5PI0DZwaSi5mMJ5QIWnK56wDQVL8YAeF7WqojJ9v2EWcP00zi7LB02N22EN3B3cR3Azej+s2m9Atz++NSKnuAeNBYor8kbKdwkKUPfbf7UKM6kBpRAueBz4fX0D3mXmu7TVo6LGIDbGoZKa0SFmXPVLmGR23hX8LgFBP0l9kWqSQ8Se1iPuSm9PEwurF9Tkb6AjWQRmOtwuOTyANJ4bXSANcAOtlsIA5LBqjci+FgVxOpk3KIaqO1GfG84Ax9oHzqZGVvK3oydTJDt1SczXIGnUY/D6rOct82ZPgnEz8Fw403Xy5CyaxZO0cLMVxfzj4qGC6x9EkLF20OQ2+cobu4qTda0uOdcJ9bsqVEz4W++AhesNF/klkd+MCBF+9wMxg==",
   kdf
 )
 // this is a test
