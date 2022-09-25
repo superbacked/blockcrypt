@@ -23,20 +23,21 @@ const insecureKdf = async (passphrase: string) => {
   return Buffer.from(data.digest("base64"), "base64")
 }
 
-const referenceSalt = "Com4/aFtBjaGdvbjgi5UNw=="
-const referenceSaltBuffer = Buffer.from(referenceSalt, "base64")
-const referenceIv = "u05uhhQe3NDtCf39rsxnig=="
-const referenceIvBuffer = Buffer.from(referenceIv, "base64")
-const referenceHeadersSignature = "g2a/fztnusowrRuY0HMQo4ct"
+const referenceSalt = Buffer.from("Com4/aFtBjaGdvbjgi5UNw==", "base64")
+const referenceIv = Buffer.from("u05uhhQe3NDtCf39rsxnig==", "base64")
+const referenceHeadersSignature = Buffer.from(
+  "g2a/fztnusowrRuY0HMQo4ctZd74Mnh30P5AR9HWBawUCBbAAnkWAbpt+gx59eIlDoFbhn4pr0hoHpcoCgtW+g==",
+  "base64"
+)
 
 test("gets data length of secret 1 as string", async () => {
   const dataLength = getDataLength(Buffer.from(secrets[0].message))
-  expect(dataLength).toEqual(248)
+  expect(dataLength).toEqual(184)
 })
 
 test("gets data length of secret 1 as buffer", async () => {
   const dataLength = getDataLength(Buffer.from(secrets[0].message))
-  expect(dataLength).toEqual(248)
+  expect(dataLength).toEqual(184)
 })
 
 test("confirms block matches reference", async () => {
@@ -45,14 +46,19 @@ test("confirms block matches reference", async () => {
     insecureKdf,
     null,
     null,
-    referenceSaltBuffer,
-    referenceIvBuffer
+    referenceSalt,
+    referenceIv
   )
   expect(block.salt).toEqual(referenceSalt)
   expect(block.iv).toEqual(referenceIv)
-  expect(block.headers.length).toEqual(128)
-  expect(block.headers.substring(0, 24)).toEqual(referenceHeadersSignature)
-  expect(block.data.length).toEqual(512)
+  expect(block.headers.length).toEqual(64)
+  expect(
+    Buffer.compare(
+      block.headers.subarray(0, 32),
+      referenceHeadersSignature.subarray(0, 32)
+    )
+  ).toEqual(0)
+  expect(block.data.length).toEqual(384)
 })
 
 test("fails to encrypt no secrets", async () => {
@@ -99,20 +105,12 @@ test("fails to encrypt secrets using default headers length that is to short for
       [].concat(
         ...secrets,
         {
-          message: "a",
+          message: "foo",
           passphrase: "mousy ditch pull prize stall",
         },
         {
-          message: "b",
+          message: "bar",
           passphrase: "lurk entry clip tidal cinch",
-        },
-        {
-          message: "c",
-          passphrase: "geek skid last stays shout",
-        },
-        {
-          message: "d",
-          passphrase: "aroma feed user wing darn",
         }
       ),
       insecureKdf
@@ -213,25 +211,6 @@ test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", as
   }
 })
 
-test("encrypts secrets and fails to decrypt secret 1 using invalid output format", async () => {
-  expect.assertions(1)
-  try {
-    const block = await encrypt(secrets, insecureKdf)
-    await decrypt(
-      "foo",
-      block.salt,
-      block.iv,
-      block.headers,
-      block.data,
-      insecureKdf,
-      //@ts-ignore
-      "foo"
-    )
-  } catch (error) {
-    expect(error.message).toEqual("Invalid output format")
-  }
-})
-
 test("encrypts secrets and decrypts secret 1", async () => {
   const block = await encrypt(secrets, insecureKdf)
   const secret = await decrypt(
@@ -242,7 +221,7 @@ test("encrypts secrets and decrypts secret 1", async () => {
     block.data,
     insecureKdf
   )
-  expect(secret).toEqual(secrets[0].message)
+  expect(secret.toString()).toEqual(secrets[0].message)
 })
 
 test("encrypts secrets and decrypts secret 2", async () => {
@@ -255,7 +234,7 @@ test("encrypts secrets and decrypts secret 2", async () => {
     block.data,
     insecureKdf
   )
-  expect(secret).toEqual(secrets[1].message)
+  expect(secret.toString()).toEqual(secrets[1].message)
 })
 
 test("encrypts secrets and decrypts secret 3", async () => {
@@ -266,8 +245,7 @@ test("encrypts secrets and decrypts secret 3", async () => {
     block.iv,
     block.headers,
     block.data,
-    insecureKdf,
-    "buffer"
+    insecureKdf
   )
   expect(secret).toEqual(secrets[2].message)
 })

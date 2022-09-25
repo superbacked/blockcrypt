@@ -10,10 +10,10 @@ export interface Secret {
 export type Kdf = (passphrase: string, salt?: string) => Promise<Buffer>
 
 export interface Block {
-  salt: string
-  iv: string
-  headers: string
-  data: string
+  salt: Buffer
+  iv: Buffer
+  headers: Buffer
+  data: Buffer
 }
 
 const validateSecrets = (secrets: Secret[]) => {
@@ -41,15 +41,15 @@ export const getDataLength = (message: Message) => {
   const encipheredFinal = Buffer.concat([enciphered, cipher.final()])
   const authTag = cipher.getAuthTag()
   const buffer = Buffer.concat([encipheredFinal, iv, authTag])
-  return buffer.toString("base64").length
+  return buffer.length
 }
 
 /**
  * Encrypt secrets using Blockcrypt
  * @param secrets secrets
  * @param kdf key derivation function
- * @param headersLength optional, headers length in increments of 8 (defaults to 128)
- * @param dataLength optional, data length in increments of 8 (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of 128)
+ * @param headersLength optional, headers length in increments of `8` (defaults to `64`)
+ * @param dataLength optional, data length in increments of `8` (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of `64`)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
  * @returns block
@@ -68,7 +68,7 @@ export const encrypt = async (
   if (headersLength && headersLength % 8 !== 0) {
     throw new Error("Invalid headers length")
   } else if (!headersLength) {
-    headersLength = 128
+    headersLength = 64
   }
   if (dataLength && dataLength % 8 !== 0) {
     throw new Error("Invalid data length")
@@ -106,29 +106,26 @@ export const encrypt = async (
     dataBuffers.push(dataBuffer)
     dataStart += dataBuffer.length
     if (!dataLength && index === 0) {
-      dataLength =
-        Math.ceil((dataBuffer.toString("base64").length * 2) / 128) * 128
+      dataLength = Math.ceil((dataBuffer.length * 2) / 64) * 64
     }
   }
-  let data = Buffer.concat(dataBuffers).toString("base64")
+  let data = Buffer.concat(dataBuffers)
   const unpaddedDataLength = data.length
   if (unpaddedDataLength > dataLength) {
     throw new Error("Data too long for data length")
   }
-  dataBuffers.push(randomBytes((dataLength - unpaddedDataLength) * 0.75))
-  data = Buffer.concat(dataBuffers).toString("base64")
-  let headers = Buffer.concat(headersBuffers).toString("base64")
+  dataBuffers.push(randomBytes(dataLength - unpaddedDataLength))
+  data = Buffer.concat(dataBuffers)
+  let headers = Buffer.concat(headersBuffers)
   const unpaddedHeadersLength = headers.length
   if (unpaddedHeadersLength > headersLength) {
     throw new Error("Headers too long for headers length")
   }
-  headersBuffers.push(
-    randomBytes((headersLength - unpaddedHeadersLength) * 0.75)
-  )
-  headers = Buffer.concat(headersBuffers).toString("base64")
+  headersBuffers.push(randomBytes(headersLength - unpaddedHeadersLength))
+  headers = Buffer.concat(headersBuffers)
   return {
-    salt: salt.toString("base64"),
-    iv: iv.toString("base64"),
+    salt: salt,
+    iv: iv,
     headers: headers,
     data: data,
   }
@@ -142,40 +139,25 @@ export const encrypt = async (
  * @param headers headers
  * @param data data
  * @param kdf key derivation function
- * @param output optional, output format (defaults to string)
  * @returns message
  */
 export const decrypt = async (
   passphrase: string,
-  salt: string,
-  iv: string,
-  headers: string,
-  data: string,
-  kdf: Kdf,
-  output: "buffer" | "string" = "string"
-): Promise<Message> => {
-  if (!["buffer", "string"].includes(output)) {
-    throw new Error("Invalid output format")
-  }
-  const key = await kdf(passphrase, salt)
-  const headersBuffer = Buffer.from(headers, "base64")
-  const dataBuffer = Buffer.from(data, "base64")
+  salt: Buffer,
+  iv: Buffer,
+  headers: Buffer,
+  data: Buffer,
+  kdf: Kdf
+): Promise<Buffer> => {
+  const key = await kdf(passphrase, salt.toString("hex"))
   let headerStart = 0
   let header: string | null = null
-  while (headerStart < headersBuffer.length) {
-    for (
-      let headerEnd = headersBuffer.length;
-      headerEnd > headerStart;
-      headerEnd--
-    ) {
+  while (headerStart < headers.length) {
+    for (let headerEnd = headers.length; headerEnd > headerStart; headerEnd--) {
       try {
-        const headersDecipher = createDecipheriv(
-          "aes-256-cbc",
-          key,
-          Buffer.from(iv, "base64")
-        )
+        const headersDecipher = createDecipheriv("aes-256-cbc", key, iv)
         const headersDeciphered = headersDecipher.update(
-          headersBuffer.subarray(headerStart, headerEnd)
+          headers.subarray(headerStart, headerEnd)
         )
         const headerDecipheredFinal = Buffer.concat([
           headersDeciphered,
@@ -202,18 +184,15 @@ export const decrypt = async (
     header.split(":")
   const dataEncipheredFinalEnd =
     parseInt(dataEncipheredFinalStart) + parseInt(dataEncipheredFinalLength)
-  const dataEncipheredFinal = dataBuffer.subarray(
+  const dataEncipheredFinal = data.subarray(
     parseInt(dataEncipheredFinalStart),
     dataEncipheredFinalEnd
   )
   const dataIvStart = dataEncipheredFinalEnd
   const dataIvEnd = dataIvStart + 12
-  const dataIv = dataBuffer.subarray(dataIvStart, dataIvEnd)
+  const dataIv = data.subarray(dataIvStart, dataIvEnd)
   const dataAuthTagStart = dataIvEnd
-  const dataAuthTag = dataBuffer.subarray(
-    dataAuthTagStart,
-    dataAuthTagStart + 16
-  )
+  const dataAuthTag = data.subarray(dataAuthTagStart, dataAuthTagStart + 16)
   const dataDecipher = createDecipheriv("aes-256-gcm", key, dataIv)
   dataDecipher.setAuthTag(dataAuthTag)
   const dataDeciphered = dataDecipher.update(dataEncipheredFinal)
@@ -221,7 +200,5 @@ export const decrypt = async (
     dataDeciphered,
     dataDecipher.final(),
   ])
-  const message =
-    output === "buffer" ? dataDecipheredFinal : dataDecipheredFinal.toString()
-  return message
+  return dataDecipheredFinal
 }
