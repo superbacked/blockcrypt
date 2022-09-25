@@ -37,8 +37,8 @@ console.log(block)
 // {
 //   salt: <Buffer 0a 89 b8 fd a1 6d 06 36 86 76 f6 e3 82 2e 54 37>,
 //   iv: <Buffer bb 4e 6e 86 14 1e dc d0 ed 09 fd fd ae cc 67 8a>,
-//   headers: <Buffer 83 66 bf 7f 3b 67 ba ca 30 ad 1b 98 d0 73 10 a3 87 2d 65 de f8 32 78 77 d0 fe 40 47 d1 d6 05 ac 14 08 16 c0 02 79 16 01 ba 6d fa 0c 79 f5 e2 25 b7 2f ... 14 more bytes>,
-//   data: <Buffer c5 93 19 d5 af 16 06 06 cf 68 28 35 d2 cc 02 a5 6f 28 06 b4 2b fc ef 0c c6 8a 8c de 51 9d 8d d8 c6 60 18 4f 9a 26 25 0f 9a fa b3 1e 3d b5 53 01 32 7d ... 334 more bytes>
+//   headers: <Buffer 50 93 bc 9b dc 28 7b 40 ab 12 4c 87 a8 eb 8b 37 d0 0d f7 1e f0 91 33 a9 ad 26 1e 14 73 1a 32 6d bd cf a9 7b 0a 67 97 78 ee c8 95 c5 28 ae ac ad 5f 2d ... 14 more bytes>,
+//   data: <Buffer 4e 2f bc 42 3e 88 1e 35 d8 cb 88 ff 4f 43 60 6f 02 5f f2 81 f6 f7 b8 32 84 80 e3 a9 c5 fe f0 0b 02 b9 cc c8 be 06 d3 d4 85 96 62 cc 0a 27 0e 5d 61 4a ... 334 more bytes>
 // }
 
 const secret = await decrypt(

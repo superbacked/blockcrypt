@@ -7,7 +7,7 @@ export interface Secret {
   passphrase: string
 }
 
-export type Kdf = (passphrase: string, salt?: string) => Promise<Buffer>
+export type Kdf = (passphrase: string, salt: string) => Promise<Buffer>
 
 export interface Block {
   salt: Buffer
@@ -149,7 +149,7 @@ export const decrypt = async (
   data: Buffer,
   kdf: Kdf
 ): Promise<Buffer> => {
-  const key = await kdf(passphrase, salt.toString("hex"))
+  const key = await kdf(passphrase, salt.toString("base64"))
   let headerStart = 0
   let header: string | null = null
   while (headerStart < headers.length) {

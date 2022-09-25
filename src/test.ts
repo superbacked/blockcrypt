@@ -1,4 +1,4 @@
-import { createHash } from "crypto"
+import { createHmac } from "crypto"
 import { encrypt, decrypt, getDataLength, Secret } from "./index"
 
 const secrets: Secret[] = [
@@ -17,16 +17,19 @@ const secrets: Secret[] = [
   },
 ]
 
-const insecureKdf = async (passphrase: string) => {
-  const hash = createHash("sha256")
-  const data = hash.update(passphrase)
+const insecureKdf = async (
+  passphrase: string,
+  salt: string
+): Promise<Buffer> => {
+  const hmac = createHmac("sha256", salt)
+  const data = hmac.update(passphrase)
   return Buffer.from(data.digest("base64"), "base64")
 }
 
 const referenceSalt = Buffer.from("Com4/aFtBjaGdvbjgi5UNw==", "base64")
 const referenceIv = Buffer.from("u05uhhQe3NDtCf39rsxnig==", "base64")
 const referenceHeadersSignature = Buffer.from(
-  "g2a/fztnusowrRuY0HMQo4ctZd74Mnh30P5AR9HWBawUCBbAAnkWAbpt+gx59eIlDoFbhn4pr0hoHpcoCgtW+g==",
+  "UJO8m9woe0CrEkyHqOuLN9AN9x7wkTOprSYeFHMaMm29z6l7CmeXeO7IlcUorqytXy2zChcJdDN0z6ulBCXs+g==",
   "base64"
 )
 
