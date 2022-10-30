@@ -224,7 +224,7 @@ test("encrypts secrets and decrypts secret 1", async () => {
     block.data,
     insecureKdf
   )
-  expect(secret.toString()).toEqual(secrets[0].message)
+  expect(Buffer.from(secret).toString()).toEqual(secrets[0].message)
 })
 
 test("encrypts secrets and decrypts secret 2", async () => {
@@ -237,7 +237,7 @@ test("encrypts secrets and decrypts secret 2", async () => {
     block.data,
     insecureKdf
   )
-  expect(secret.toString()).toEqual(secrets[1].message)
+  expect(Buffer.from(secret).toString()).toEqual(secrets[1].message)
 })
 
 test("encrypts secrets and decrypts secret 3", async () => {
@@ -250,5 +250,5 @@ test("encrypts secrets and decrypts secret 3", async () => {
     block.data,
     insecureKdf
   )
-  expect(secret).toEqual(secrets[2].message)
+  expect(Buffer.from(secret)).toEqual(secrets[2].message)
 })
