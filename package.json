@@ -18,7 +18,7 @@
   "scripts": {
     "code": "tsc -w",
     "build": "rm -fr dist/*; tsc",
-    "test": "jest dist/test.js",
+    "test": "npm run build && jest dist/test.js",
     "prepublishOnly": "npm run build",
     "ncu": "ncu --target minor --upgrade"
   },
