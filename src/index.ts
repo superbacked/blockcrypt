@@ -1,4 +1,10 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
+import {
+  decryptCBC,
+  decryptGCM,
+  encryptCBC,
+  encryptGCM,
+  randomBytes,
+} from "./crypto"
 import { concat, toBase64, toUint8Array, toUTF8String } from "./util"
 
 export type Message = Uint8Array | string
@@ -26,31 +32,28 @@ const isValidSecrets = (secrets: Secret[]): boolean =>
       (secret.passphrase || "").length > 0
   )
 
-const encryptData = (key: Uint8Array, secret: Secret) => {
-  const iv = randomBytes(12)
-  const cipher = createCipheriv("aes-256-gcm", key, iv)
-  const ciphertext = concat([cipher.update(secret.message), cipher.final()])
-  const authTag = cipher.getAuthTag()
+const encryptData = async (key: Uint8Array, secret: Secret) => {
+  const iv = await randomBytes(12)
+  const { ciphertext, authTag } = await encryptGCM(
+    key,
+    iv,
+    toUint8Array(secret.message)
+  )
   return { ciphertext, iv, authTag }
 }
 
-const encryptHeader = (
-  key: Uint8Array,
-  block: Block,
-  ciphertext: Uint8Array
-) => {
-  const cipher = createCipheriv("aes-256-cbc", key, block.iv)
-  return concat([
-    cipher.update(`${block.data.byteLength}:${ciphertext.byteLength}`),
-    cipher.final(),
-  ])
-}
+const encryptHeader = (key: Uint8Array, block: Block, ciphertext: Uint8Array) =>
+  encryptCBC(
+    key,
+    block.iv,
+    toUint8Array(`${block.data.byteLength}:${ciphertext.byteLength}`)
+  )
 
-const padBytes = (
+const padBytes = async (
   buffer: Uint8Array,
   desiredLength: number,
   errorMessage: string
-): Uint8Array => {
+): Promise<Uint8Array> => {
   if (buffer.byteLength > desiredLength) {
     throw new Error(errorMessage)
   }
@@ -73,15 +76,18 @@ const encryptSecret = async (
   dataLength: number
 ): Promise<Block> => {
   const key = await kdf(secret.passphrase, toBase64(block.salt))
-  const { ciphertext, iv, authTag } = encryptData(key, secret)
-  const headers = concat([block.headers, encryptHeader(key, block, ciphertext)])
+  const { ciphertext, iv, authTag } = await encryptData(key, secret)
+  const headers = concat([
+    block.headers,
+    await encryptHeader(key, block, ciphertext),
+  ])
   const data = concat([block.data, ciphertext, iv, authTag])
   const isLastIndex = secretsIndex + 1 === secretsLength
   return {
     ...block,
-    data: isLastIndex ? concat([data, padData(data, dataLength)]) : data,
+    data: isLastIndex ? concat([data, await padData(data, dataLength)]) : data,
     headers: isLastIndex
-      ? concat([headers, padHeaders(headers, headersLength)])
+      ? concat([headers, await padHeaders(headers, headersLength)])
       : headers,
   }
 }
@@ -143,8 +149,8 @@ export const encrypt = async (
     Promise.resolve({
       data: Uint8Array.from([]),
       headers: Uint8Array.from([]),
-      salt: salt || randomBytes(16),
-      iv: iv || randomBytes(16),
+      salt: salt || (await randomBytes(16)),
+      iv: iv || (await randomBytes(16)),
     })
   )
 }
@@ -164,39 +170,39 @@ const createHeaderRanges = (headers: Uint8Array) => {
     .flat()
 }
 
-const decryptHeader = (
+const decryptHeader = async (
   key: Uint8Array,
   iv: Uint8Array,
   headers: Uint8Array,
   start: number,
   end: number
-) => {
-  const decipher = createDecipheriv("aes-256-cbc", key, iv)
-  return toUTF8String(
-    concat([decipher.update(headers.subarray(start, end)), decipher.final()])
-  )
-}
+) => toUTF8String(await decryptCBC(key, iv, headers.subarray(start, end)))
 
-const decryptHeaders = (
+const decryptHeaders = async (
   key: Uint8Array,
   iv: Uint8Array,
   headers: Uint8Array
 ) => {
-  let header = ""
-  createHeaderRanges(headers).every(({ start, end }) => {
-    try {
-      const string = decryptHeader(key, iv, headers, start, end)
-      if (string.match(/^[0-9]+:[0-9]+$/)) {
-        header = string
-        return false
+  const result = await createHeaderRanges(headers).reduce(
+    async (promise, { start, end }) => {
+      const header = await promise
+      if (header) {
+        return header
       }
-    } catch (error) {}
-    return true
-  })
-  if (!header) {
+      try {
+        const string = await decryptHeader(key, iv, headers, start, end)
+        if (string.match(/^[0-9]+:[0-9]+$/)) {
+          return string
+        }
+      } catch (error) {}
+      return header
+    },
+    Promise.resolve("")
+  )
+  if (!result) {
     throw new Error("Header not found")
   }
-  const [dataStart, dataSize] = header.split(":").map((str) => parseInt(str))
+  const [dataStart, dataSize] = result.split(":").map((str) => parseInt(str))
   return [dataStart, dataStart + dataSize]
 }
 
@@ -210,8 +216,7 @@ const decryptData = (
   const ivEnd = ciphertextEnd + 12
   const iv = data.subarray(ciphertextEnd, ivEnd)
   const authTag = data.subarray(ivEnd, ivEnd + 16)
-  const decipher = createDecipheriv("aes-256-gcm", key, iv).setAuthTag(authTag)
-  return concat([decipher.update(ciphertext), decipher.final()])
+  return decryptGCM(key, iv, ciphertext, authTag)
 }
 
 /**
@@ -233,6 +238,6 @@ export const decrypt = async (
   kdf: Kdf
 ): Promise<Uint8Array> => {
   const key = await kdf(passphrase, toBase64(salt))
-  const [dataStart, dataEnd] = decryptHeaders(key, iv, headers)
+  const [dataStart, dataEnd] = await decryptHeaders(key, iv, headers)
   return decryptData(key, data, dataStart, dataEnd)
 }

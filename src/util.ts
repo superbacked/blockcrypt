@@ -1,7 +1,10 @@
 const BASE64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 
-export const toUint8Array = (data: Uint8Array | string) => {
+export const toUint8Array = (data: ArrayBuffer | Uint8Array | string) => {
+  if (data instanceof ArrayBuffer) {
+    return new Uint8Array(data)
+  }
   if (typeof data === "string") {
     return new TextEncoder().encode(data)
   }
