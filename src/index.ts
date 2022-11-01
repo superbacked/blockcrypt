@@ -16,12 +16,27 @@ export interface Secret {
 
 export type Kdf = (passphrase: string, salt: string) => Promise<Uint8Array>
 
-export interface Block {
+export interface BlockCompat {
   salt: Uint8Array
   iv: Uint8Array
   headers: Uint8Array
   data: Uint8Array
 }
+
+export interface Block {
+  salt: Buffer
+  iv: Buffer
+  headers: Buffer
+  data: Buffer
+}
+
+/**
+ * Get data length of message
+ * @param message message
+ * @returns data length in bytes
+ */
+export const getDataLength = (message: Message) =>
+  toUint8Array(message).byteLength + 12 + 16
 
 const isValidSecrets = (secrets: Secret[]): boolean =>
   secrets instanceof Array &&
@@ -42,7 +57,11 @@ const encryptData = async (key: Uint8Array, secret: Secret) => {
   return { ciphertext, iv, authTag }
 }
 
-const encryptHeader = (key: Uint8Array, block: Block, ciphertext: Uint8Array) =>
+const encryptHeader = (
+  key: Uint8Array,
+  block: BlockCompat,
+  ciphertext: Uint8Array
+) =>
   encryptCBC(
     key,
     block.iv,
@@ -69,12 +88,12 @@ const padHeaders = (headers: Uint8Array, headersLength: number) =>
 const encryptSecret = async (
   kdf: Kdf,
   secret: Secret,
-  block: Block,
+  block: BlockCompat,
   secretsIndex: number,
   secretsLength: number,
   headersLength: number,
   dataLength: number
-): Promise<Block> => {
+): Promise<BlockCompat> => {
   const key = await kdf(secret.passphrase, toBase64(block.salt))
   const { ciphertext, iv, authTag } = await encryptData(key, secret)
   const headers = concat([
@@ -92,32 +111,14 @@ const encryptSecret = async (
   }
 }
 
-/**
- * Get data length of message
- * @param message message
- * @returns data length in bytes
- */
-export const getDataLength = (message: Message) =>
-  toUint8Array(message).byteLength + 12 + 16
-
-/**
- * Encrypt secrets using Blockcrypt
- * @param secrets secrets
- * @param kdf key derivation function
- * @param headersLength optional, headers length in increments of `8` bytes (defaults to `64`)
- * @param dataLength optional, data length in increments of `8` bytes (defaults to first secret ciphertext Uint8Array length * 2 rounded to nearest upper increment of `64` bytes)
- * @param salt optional, salt used for deterministic unit tests
- * @param iv optional, initialization vector used for deterministic unit tests
- * @returns block
- */
-export const encrypt = async (
+export const encryptCompat = async (
   secrets: Secret[],
   kdf: Kdf,
   headersLength?: number,
   dataLength?: number,
   salt?: Uint8Array,
   iv?: Uint8Array
-): Promise<Block> => {
+): Promise<BlockCompat> => {
   if (!isValidSecrets(secrets)) {
     throw new Error("Invalid secrets")
   }
@@ -130,7 +131,7 @@ export const encrypt = async (
     throw new Error("Invalid data length")
   }
   return secrets.reduce(
-    async (promise: Promise<Block>, secret: Secret, index) => {
+    async (promise: Promise<BlockCompat>, secret: Secret, index) => {
       const previousBlock = await promise
       const block = await encryptSecret(
         kdf,
@@ -153,6 +154,40 @@ export const encrypt = async (
       iv: iv || (await randomBytes(16)),
     })
   )
+}
+
+/**
+ * Encrypt secrets using Blockcrypt
+ * @param secrets secrets
+ * @param kdf key derivation function
+ * @param headersLength optional, headers length in increments of `8` bytes (defaults to `64`)
+ * @param dataLength optional, data length in increments of `8` bytes (defaults to first secret ciphertext Uint8Array length * 2 rounded to nearest upper increment of `64` bytes)
+ * @param salt optional, salt used for deterministic unit tests
+ * @param iv optional, initialization vector used for deterministic unit tests
+ * @returns block
+ */
+export const encrypt = async (
+  secrets: Secret[],
+  kdf: Kdf,
+  headersLength?: number,
+  dataLength?: number,
+  salt?: Buffer,
+  iv?: Buffer
+): Promise<Block> => {
+  const block = await encryptCompat(
+    secrets,
+    kdf,
+    headersLength,
+    dataLength,
+    salt,
+    iv
+  )
+  return {
+    salt: Buffer.from(block.salt),
+    iv: Buffer.from(block.iv),
+    headers: Buffer.from(block.headers),
+    data: Buffer.from(block.data),
+  }
 }
 
 const createRange = (start: number, end: number) =>
@@ -185,14 +220,14 @@ const decryptHeaders = async (
 ) => {
   const result = await createHeaderRanges(headers).reduce(
     async (promise, { start, end }) => {
-      const header = await promise
+      const header: string = await promise
       if (header) {
         return header
       }
       try {
-        const string = await decryptHeader(key, iv, headers, start, end)
-        if (string.match(/^[0-9]+:[0-9]+$/)) {
-          return string
+        const str = await decryptHeader(key, iv, headers, start, end)
+        if (str.match(/^[0-9]+:[0-9]+$/)) {
+          return str
         }
       } catch (error) {}
       return header
@@ -202,7 +237,9 @@ const decryptHeaders = async (
   if (!result) {
     throw new Error("Header not found")
   }
-  const [dataStart, dataSize] = result.split(":").map((str) => parseInt(str))
+  const [dataStart, dataSize] = result
+    .split(":")
+    .map((value: string) => parseInt(value))
   return [dataStart, dataStart + dataSize]
 }
 
@@ -219,6 +256,19 @@ const decryptData = (
   return decryptGCM(key, iv, ciphertext, authTag)
 }
 
+export const decryptCompat = async (
+  passphrase: string,
+  salt: Uint8Array,
+  iv: Uint8Array,
+  headers: Uint8Array,
+  data: Uint8Array,
+  kdf: Kdf
+): Promise<Uint8Array> => {
+  const key = await kdf(passphrase, toBase64(salt))
+  const [dataStart, dataEnd] = await decryptHeaders(key, iv, headers)
+  return decryptData(key, data, dataStart, dataEnd)
+}
+
 /**
  * Decrypt secret encrypted using Blockcrypt
  * @param passphrase passphrase
@@ -231,13 +281,12 @@ const decryptData = (
  */
 export const decrypt = async (
   passphrase: string,
-  salt: Uint8Array,
-  iv: Uint8Array,
-  headers: Uint8Array,
-  data: Uint8Array,
+  salt: Buffer,
+  iv: Buffer,
+  headers: Buffer,
+  data: Buffer,
   kdf: Kdf
-): Promise<Uint8Array> => {
-  const key = await kdf(passphrase, toBase64(salt))
-  const [dataStart, dataEnd] = await decryptHeaders(key, iv, headers)
-  return decryptData(key, data, dataStart, dataEnd)
+): Promise<Buffer> => {
+  const message = await decryptCompat(passphrase, salt, iv, headers, data, kdf)
+  return Buffer.from(message)
 }
