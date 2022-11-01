@@ -161,7 +161,7 @@ export const encryptCompat = async (
  * @param secrets secrets
  * @param kdf key derivation function
  * @param headersLength optional, headers length in increments of `8` bytes (defaults to `64`)
- * @param dataLength optional, data length in increments of `8` bytes (defaults to first secret ciphertext Uint8Array length * 2 rounded to nearest upper increment of `64` bytes)
+ * @param dataLength optional, data length in increments of `8` bytes (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of `64` bytes)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
  * @returns block
