@@ -2,17 +2,17 @@
   "name": "blockcrypt",
   "version": "0.0.1-beta.21",
   "description": "Encrypt one or more secrets with plausible deniability by design.",
-  "exports": "./dist/index.js",
+  "exports": "./dist/src/index.js",
   "type": "module",
   "typesVersions": {
     "*": {
       "*": [
-        "dist/*"
+        "dist/src/*"
       ]
     }
   },
   "files": [
-    "dist/",
+    "dist/src/",
     "package.json",
     "LICENCE",
     "README.md"
