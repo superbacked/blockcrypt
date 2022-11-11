@@ -1,7 +1,10 @@
 import type { webcrypto } from "crypto"
 import { concat, toUint8Array } from "./util"
 
-const loadCrypto = async () => {
+const CIPHER_CBC = "AES-CBC"
+const CIPHER_GCM = "AES-GCM"
+
+const importCrypto = async () => {
   if (typeof window === "object") {
     return window.crypto
   }
@@ -13,7 +16,7 @@ let webCrypto: Crypto | webcrypto.Crypto = null
 
 const getCrypto = async () => {
   if (!webCrypto) {
-    webCrypto = await loadCrypto()
+    webCrypto = await importCrypto()
   }
   return webCrypto
 }
@@ -32,10 +35,10 @@ export const encryptCBC = async (
   const crypto = await getCrypto()
   const ciphertext = await crypto.subtle.encrypt(
     {
-      name: "AES-CBC",
+      name: CIPHER_CBC,
       iv,
     },
-    await importSecretKey(key, "AES-CBC"),
+    await importSecretKey(key, CIPHER_CBC),
     message
   )
   return toUint8Array(ciphertext)
@@ -50,11 +53,11 @@ export const encryptGCM = async (
   const result = toUint8Array(
     await crypto.subtle.encrypt(
       {
-        name: "AES-GCM",
+        name: CIPHER_GCM,
         iv,
         tagLength: 128,
       },
-      await importSecretKey(key, "AES-GCM"),
+      await importSecretKey(key, CIPHER_GCM),
       message
     )
   )
@@ -72,10 +75,10 @@ export const decryptCBC = async (
   const crypto = await getCrypto()
   const message = await crypto.subtle.decrypt(
     {
-      name: "AES-CBC",
+      name: CIPHER_CBC,
       iv,
     },
-    await importSecretKey(key, "AES-CBC"),
+    await importSecretKey(key, CIPHER_CBC),
     ciphertext
   )
   return toUint8Array(message)
@@ -90,11 +93,11 @@ export const decryptGCM = async (
   const crypto = await getCrypto()
   const message = await crypto.subtle.decrypt(
     {
-      name: "AES-GCM",
+      name: CIPHER_GCM,
       iv,
       tagLength: 128,
     },
-    await importSecretKey(key, "AES-GCM"),
+    await importSecretKey(key, CIPHER_GCM),
     concat([ciphertext, authTag])
   )
   return toUint8Array(message)

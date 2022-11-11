@@ -1,20 +1,23 @@
 const BASE64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 
-export const toUint8Array = (data: ArrayBuffer | Uint8Array | string) => {
-  if (data instanceof ArrayBuffer) {
-    return new Uint8Array(data)
-  }
+export const toUint8Array = (data: string | BufferSource) => {
   if (typeof data === "string") {
     return new TextEncoder().encode(data)
   }
-  return Uint8Array.from(data)
+  if (data instanceof ArrayBuffer) {
+    return new Uint8Array(data)
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+  }
+  return Uint8Array.from([])
 }
 
-export const concat = (chunks: Uint8Array[]) =>
+export const concat = (chunks: BufferSource[]) =>
   Uint8Array.from(chunks.map((chunk) => [...toUint8Array(chunk)]).flat())
 
-export const toUTF8String = (data: Uint8Array) => new TextDecoder().decode(data)
+export const isWebEnvironment = () => typeof window === "object"
 
 const indicesToBase64 = (indices: number[]) =>
   indices.map((index) => BASE64_ALPHABET.charAt(index))
@@ -58,3 +61,5 @@ export const toBase64 = (data: Uint8Array) =>
     .map((chunk) => bytesToBase64.apply(null, chunk))
     .flat()
     .join("")
+
+export const toUTF8String = (data: Uint8Array) => new TextDecoder().decode(data)
