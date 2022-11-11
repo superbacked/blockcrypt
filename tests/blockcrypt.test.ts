@@ -1,5 +1,5 @@
 import { createHmac } from "crypto"
-import { encrypt, decrypt, getDataLength, Secret } from "./index"
+import { encrypt, decrypt, getDataLength, Secret } from "../src"
 
 const secrets: Secret[] = [
   {

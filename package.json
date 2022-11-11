@@ -26,7 +26,7 @@
   "scripts": {
     "code": "tsc -w",
     "build": "rm -fr dist/*; tsc",
-    "test": "npm run build && NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest dist/test.js",
+    "test": "npm run build && NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest",
     "prepublishOnly": "npm run build",
     "ncu": "ncu --target minor --upgrade"
   },
