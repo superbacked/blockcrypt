@@ -1,7 +1,7 @@
 import { GCM_IV_LENGTH, GCM_TAG_LENGTH } from "./constants"
 import { decryptCBC, decryptGCM } from "./crypto"
 import { Kdf } from "./types"
-import { isWebEnv, toUTF8String } from "./util"
+import { isWebEnv, toHexString, toUTF8String } from "./util"
 
 const createHeaderRange = (start: number, end: number) =>
   [...Array(end - start + 1).keys()].map((x) => x + start)
@@ -94,7 +94,7 @@ const decrypt = async (
   data: Uint8Array,
   kdf: Kdf
 ): Promise<Uint8Array> => {
-  const key = await kdf(passphrase, salt)
+  const key = await kdf(passphrase, toHexString(salt))
   const [dataStart, dataEnd] = await decryptHeaders(key, iv, headers)
   const message = await decryptData(key, data, dataStart, dataEnd)
   return isWebEnv() ? message : Buffer.from(message)

@@ -1,5 +1,6 @@
 import { createHmac } from "crypto"
 import { encrypt, decrypt, getDataLength, Secret } from "../src"
+import { toHexString } from "../src/util"
 
 const secrets: Secret[] = [
   {
@@ -19,9 +20,9 @@ const secrets: Secret[] = [
 
 const insecureKdf = async (
   passphrase: string,
-  salt: Uint8Array
+  salt: string
 ): Promise<Buffer> => {
-  const hmac = createHmac("sha256", Buffer.from(salt).toString("base64"))
+  const hmac = createHmac("sha256", Buffer.from(salt, "hex").toString("base64"))
   const data = hmac.update(passphrase)
   return data.digest()
 }

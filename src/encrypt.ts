@@ -6,7 +6,13 @@ import {
 } from "./constants"
 import { encryptCBC, encryptGCM, randomBytes } from "./crypto"
 import { Block, EncryptedSecret, Kdf, Secret } from "./types"
-import { concat, createBufferBlock, isWebEnv, toUint8Array } from "./util"
+import {
+  concat,
+  createBufferBlock,
+  isWebEnv,
+  toHexString,
+  toUint8Array,
+} from "./util"
 
 const isValidSecrets = (secrets: Secret[]): boolean =>
   secrets instanceof Array &&
@@ -105,7 +111,7 @@ const padHeaders = async (headers: Uint8Array, headersLength: number) => {
 const encryptSecret = async (
   secret: Secret,
   kdf: Kdf,
-  salt: Uint8Array
+  salt: string
 ): Promise<EncryptedSecret> => {
   const key = await kdf(secret.passphrase, salt)
   return { key, ciphertext: await encryptData(key, secret) }
@@ -114,11 +120,12 @@ const encryptSecret = async (
 const encryptSecrets = async (
   secrets: Secret[],
   kdf: Kdf,
-  salt: Uint8Array,
+  saltBytes: Uint8Array,
   iv: Uint8Array,
   headersLength: number,
   dataLength?: number
 ) => {
+  const salt = toHexString(saltBytes)
   const encryptedSecrets = await Promise.all(
     secrets.map((secret) => encryptSecret(secret, kdf, salt))
   )
@@ -127,7 +134,7 @@ const encryptSecrets = async (
     await encryptHeaders(encryptedSecrets, iv),
     headersLength
   )
-  return { salt, iv, headers, data }
+  return { salt: saltBytes, iv, headers, data }
 }
 
 /**

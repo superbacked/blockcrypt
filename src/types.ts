@@ -12,7 +12,7 @@ export type EncryptedSecret = {
   ciphertext: Uint8Array
 }
 
-export type Kdf = (passphrase: string, salt: Uint8Array) => Promise<Uint8Array>
+export type Kdf = (passphrase: string, salt: string) => Promise<Uint8Array>
 
 export type Message = Uint8Array | string
 

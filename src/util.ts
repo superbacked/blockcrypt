@@ -43,3 +43,6 @@ export const createBufferBlock = (block: Block): Block => ({
 export const isWebEnv = () => typeof window === "object"
 
 export const toUTF8String = (data: Uint8Array) => new TextDecoder().decode(data)
+
+export const toHexString = (data: Uint8Array) =>
+  [...data].map((byte) => byte.toString(16).padStart(2, "0")).join("")
