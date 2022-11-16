@@ -1,9 +1,9 @@
-import { Block, BufferBlock, Kdf, Message, Secret } from "./types"
+import { Block, Kdf, Message, Secret } from "./types"
 import { toUint8Array } from "./util"
 import decrypt from "./decrypt"
 import encrypt from "./encrypt"
 
-export type { Block, BufferBlock, Kdf, Message, Secret }
+export type { Block, Kdf, Message, Secret }
 
 /**
  * Get data length of message

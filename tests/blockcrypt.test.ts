@@ -19,11 +19,11 @@ const secrets: Secret[] = [
 
 const insecureKdf = async (
   passphrase: string,
-  salt: string
+  salt: Uint8Array
 ): Promise<Buffer> => {
-  const hmac = createHmac("sha256", salt)
+  const hmac = createHmac("sha256", Buffer.from(salt).toString("base64"))
   const data = hmac.update(passphrase)
-  return Buffer.from(data.digest("base64"), "base64")
+  return data.digest()
 }
 
 const referenceSalt = Buffer.from("Com4/aFtBjaGdvbjgi5UNw==", "base64")

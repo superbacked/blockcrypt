@@ -1,6 +1,12 @@
+import {
+  CBC_IV_LENGTH,
+  DEFAULT_SALT_LENGTH,
+  GCM_IV_LENGTH,
+  GCM_TAG_LENGTH,
+} from "./constants"
 import { encryptCBC, encryptGCM, randomBytes } from "./crypto"
-import { Block, BufferBlock, Kdf, Secret } from "./types"
-import { concat, isWebEnvironment, toBase64, toUint8Array } from "./util"
+import { Block, EncryptedSecret, Kdf, Secret } from "./types"
+import { concat, createBufferBlock, isWebEnv, toUint8Array } from "./util"
 
 const isValidSecrets = (secrets: Secret[]): boolean =>
   secrets instanceof Array &&
@@ -18,15 +24,39 @@ const encryptData = async (key: Uint8Array, secret: Secret) => {
     iv,
     toUint8Array(secret.message)
   )
-  return { ciphertext, iv, authTag }
+  return concat([ciphertext, iv, authTag])
 }
 
-const encryptHeader = (key: Uint8Array, block: Block, ciphertext: Uint8Array) =>
-  encryptCBC(
-    key,
-    block.iv,
-    toUint8Array(`${block.data.byteLength}:${ciphertext.byteLength}`)
+const encryptHeader = (
+  key: Uint8Array,
+  iv: Uint8Array,
+  byteOffset: number,
+  byteLength: number
+) => encryptCBC(key, iv, toUint8Array(`${byteOffset}:${byteLength}`))
+
+const encryptHeaders = async (
+  encryptedSecrets: EncryptedSecret[],
+  iv: Uint8Array
+) => {
+  const initialState = { byteOffset: 0, headers: Uint8Array.from([]) }
+  const { headers } = await encryptedSecrets.reduce(
+    async (promise, { key, ciphertext }) => {
+      const { byteOffset, headers } = await promise
+      const header = await encryptHeader(
+        key,
+        iv,
+        byteOffset,
+        ciphertext.byteLength - (GCM_IV_LENGTH + GCM_TAG_LENGTH)
+      )
+      return {
+        byteOffset: byteOffset + ciphertext.byteLength,
+        headers: concat([headers, header]),
+      }
+    },
+    Promise.resolve(initialState)
   )
+  return headers
+}
 
 const padBytes = async (
   buffer: Uint8Array,
@@ -39,39 +69,49 @@ const padBytes = async (
   return randomBytes(desiredLength - buffer.byteLength)
 }
 
-const padData = (data: Uint8Array, dataLength: number) =>
-  padBytes(data, dataLength, "Data too long for data length")
-
-const padHeaders = (headers: Uint8Array, headersLength: number) =>
-  padBytes(headers, headersLength, "Headers too long for headers length")
-
-const encryptSecret = async (
-  kdf: Kdf,
-  secret: Secret,
-  block: Block,
-  secretsIndex: number,
-  secretsLength: number,
-  headersLength: number,
-  dataLength: number
-): Promise<Block> => {
-  const key = await kdf(secret.passphrase, toBase64(block.salt))
-  const { ciphertext, iv, authTag } = await encryptData(key, secret)
-  const headers = concat([
-    block.headers,
-    await encryptHeader(key, block, ciphertext),
-  ])
-  const data = concat([block.data, ciphertext, iv, authTag])
-  const isLastIndex = secretsIndex + 1 === secretsLength
-  return {
-    ...block,
-    data: isLastIndex ? concat([data, await padData(data, dataLength)]) : data,
-    headers: isLastIndex
-      ? concat([headers, await padHeaders(headers, headersLength)])
-      : headers,
+const calculateDataPadding = (
+  ciphertexts: Uint8Array[],
+  dataLength?: number
+) => {
+  if (!dataLength) {
+    return Math.ceil((ciphertexts[0].byteLength * 2) / 64) * 64
   }
+  return dataLength
 }
 
-const encryptSecrets = (
+const padData = async (
+  encryptedSecrets: EncryptedSecret[],
+  dataLength?: number
+) => {
+  const ciphertexts = encryptedSecrets.map(({ ciphertext }) => ciphertext)
+  const data = concat(ciphertexts)
+  const padding = await padBytes(
+    data,
+    calculateDataPadding(ciphertexts, dataLength),
+    "Data too long for data length"
+  )
+  return concat([data, padding])
+}
+
+const padHeaders = async (headers: Uint8Array, headersLength: number) => {
+  const padding = await padBytes(
+    headers,
+    headersLength,
+    "Headers too long for headers length"
+  )
+  return concat([headers, padding])
+}
+
+const encryptSecret = async (
+  secret: Secret,
+  kdf: Kdf,
+  salt: Uint8Array
+): Promise<EncryptedSecret> => {
+  const key = await kdf(secret.passphrase, salt)
+  return { key, ciphertext: await encryptData(key, secret) }
+}
+
+const encryptSecrets = async (
   secrets: Secret[],
   kdf: Kdf,
   salt: Uint8Array,
@@ -79,38 +119,16 @@ const encryptSecrets = (
   headersLength: number,
   dataLength?: number
 ) => {
-  return secrets.reduce(
-    async (promise: Promise<Block>, secret: Secret, index) => {
-      const previousBlock = await promise
-      const block = await encryptSecret(
-        kdf,
-        secret,
-        previousBlock,
-        index,
-        secrets.length,
-        headersLength,
-        dataLength
-      )
-      if (!dataLength && index === 0) {
-        dataLength = Math.ceil((block.data.byteLength * 2) / 64) * 64
-      }
-      return block
-    },
-    Promise.resolve({
-      data: Uint8Array.from([]),
-      headers: Uint8Array.from([]),
-      salt,
-      iv,
-    })
+  const encryptedSecrets = await Promise.all(
+    secrets.map((secret) => encryptSecret(secret, kdf, salt))
   )
+  const data = await padData(encryptedSecrets, dataLength)
+  const headers = await padHeaders(
+    await encryptHeaders(encryptedSecrets, iv),
+    headersLength
+  )
+  return { salt, iv, headers, data }
 }
-
-const createBufferBlock = (block: Block): BufferBlock => ({
-  salt: Buffer.from(block.salt),
-  iv: Buffer.from(block.iv),
-  headers: Buffer.from(block.headers),
-  data: Buffer.from(block.data),
-})
 
 /**
  * Encrypt secrets using Blockcrypt
@@ -129,7 +147,7 @@ const encrypt = async (
   dataLength?: number,
   salt?: Uint8Array,
   iv?: Uint8Array
-): Promise<Block | BufferBlock> => {
+): Promise<Block> => {
   if (!isValidSecrets(secrets)) {
     throw new Error("Invalid secrets")
   }
@@ -144,12 +162,12 @@ const encrypt = async (
   const block = await encryptSecrets(
     secrets,
     kdf,
-    salt || (await randomBytes(16)),
-    iv || (await randomBytes(16)),
+    salt || (await randomBytes(DEFAULT_SALT_LENGTH)),
+    iv || (await randomBytes(CBC_IV_LENGTH)),
     headersLength,
     dataLength
   )
-  return isWebEnvironment() ? block : createBufferBlock(block)
+  return isWebEnv() ? block : createBufferBlock(block)
 }
 
 export default encrypt

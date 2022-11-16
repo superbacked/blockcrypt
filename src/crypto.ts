@@ -1,107 +1,79 @@
-import type { webcrypto } from "crypto"
-import { concat, toUint8Array } from "./util"
+import { CIPHER_CBC, CIPHER_GCM, GCM_TAG_LENGTH } from "./constants"
+import { WebCrypto } from "./types"
+import { concat, getCrypto, toUint8Array } from "./util"
 
-const CIPHER_CBC = "AES-CBC"
-const CIPHER_GCM = "AES-GCM"
+const getCipherParams = (name: string, iv: Uint8Array) => ({
+  name,
+  iv,
+  tagLength: name === CIPHER_GCM ? GCM_TAG_LENGTH * 8 : undefined,
+})
 
-const importCrypto = async () => {
-  if (typeof window === "object") {
-    return window.crypto
-  }
-  const { webcrypto } = await import("crypto")
-  return webcrypto
-}
+const importSecretKey = async (
+  crypto: WebCrypto,
+  key: Uint8Array,
+  cipher: string
+) => crypto.subtle.importKey("raw", key, cipher, false, ["encrypt", "decrypt"])
 
-let webCrypto: Crypto | webcrypto.Crypto = null
-
-const getCrypto = async () => {
-  if (!webCrypto) {
-    webCrypto = await importCrypto()
-  }
-  return webCrypto
-}
-
-const importSecretKey = async (key: Uint8Array, algorithm: string) =>
-  (await getCrypto()).subtle.importKey("raw", key, algorithm, false, [
-    "encrypt",
-    "decrypt",
-  ])
-
-export const encryptCBC = async (
+const encrypt = async (
+  cipher: string,
   key: Uint8Array,
   iv: Uint8Array,
   message: Uint8Array
 ) => {
   const crypto = await getCrypto()
   const ciphertext = await crypto.subtle.encrypt(
-    {
-      name: CIPHER_CBC,
-      iv,
-    },
-    await importSecretKey(key, CIPHER_CBC),
+    getCipherParams(cipher, iv),
+    await importSecretKey(crypto, key, cipher),
     message
   )
   return toUint8Array(ciphertext)
 }
+
+export const encryptCBC = async (
+  key: Uint8Array,
+  iv: Uint8Array,
+  message: Uint8Array
+) => encrypt(CIPHER_CBC, key, iv, message)
 
 export const encryptGCM = async (
   key: Uint8Array,
   iv: Uint8Array,
   message: Uint8Array
 ) => {
-  const crypto = await getCrypto()
-  const result = toUint8Array(
-    await crypto.subtle.encrypt(
-      {
-        name: CIPHER_GCM,
-        iv,
-        tagLength: 128,
-      },
-      await importSecretKey(key, CIPHER_GCM),
-      message
-    )
-  )
+  const result = await encrypt(CIPHER_GCM, key, iv, message)
   return {
     ciphertext: result.subarray(0, result.byteLength - 16),
     authTag: result.subarray(-16),
   }
 }
 
-export const decryptCBC = async (
+const decrypt = async (
+  cipher: string,
   key: Uint8Array,
   iv: Uint8Array,
   ciphertext: Uint8Array
 ) => {
   const crypto = await getCrypto()
   const message = await crypto.subtle.decrypt(
-    {
-      name: CIPHER_CBC,
-      iv,
-    },
-    await importSecretKey(key, CIPHER_CBC),
+    getCipherParams(cipher, iv),
+    await importSecretKey(crypto, key, cipher),
     ciphertext
   )
   return toUint8Array(message)
 }
+
+export const decryptCBC = async (
+  key: Uint8Array,
+  iv: Uint8Array,
+  ciphertext: Uint8Array
+) => decrypt(CIPHER_CBC, key, iv, ciphertext)
 
 export const decryptGCM = async (
   key: Uint8Array,
   iv: Uint8Array,
   ciphertext: Uint8Array,
   authTag: Uint8Array
-) => {
-  const crypto = await getCrypto()
-  const message = await crypto.subtle.decrypt(
-    {
-      name: CIPHER_GCM,
-      iv,
-      tagLength: 128,
-    },
-    await importSecretKey(key, CIPHER_GCM),
-    concat([ciphertext, authTag])
-  )
-  return toUint8Array(message)
-}
+) => decrypt(CIPHER_GCM, key, iv, concat([ciphertext, authTag]))
 
 export const randomBytes = async (size: number) => {
   const crypto = await getCrypto()

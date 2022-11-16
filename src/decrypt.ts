@@ -1,12 +1,13 @@
+import { GCM_IV_LENGTH, GCM_TAG_LENGTH } from "./constants"
 import { decryptCBC, decryptGCM } from "./crypto"
 import { Kdf } from "./types"
-import { isWebEnvironment, toBase64, toUTF8String } from "./util"
+import { isWebEnv, toUTF8String } from "./util"
 
-const createRange = (start: number, end: number) =>
+const createHeaderRange = (start: number, end: number) =>
   [...Array(end - start + 1).keys()].map((x) => x + start)
 
 const createHeaderRanges = (headers: Uint8Array) => {
-  const ranges = createRange(0, headers.byteLength)
+  const ranges = createHeaderRange(0, headers.byteLength)
   return ranges
     .map((start) =>
       ranges
@@ -17,39 +18,46 @@ const createHeaderRanges = (headers: Uint8Array) => {
     .flat()
 }
 
-const decryptHeader = async (
+const decryptHeaderRange = async (
   key: Uint8Array,
   iv: Uint8Array,
   headers: Uint8Array,
   start: number,
   end: number
-) => toUTF8String(await decryptCBC(key, iv, headers.subarray(start, end)))
+) => {
+  try {
+    const headerBytes = await decryptCBC(key, iv, headers.subarray(start, end))
+    const header = toUTF8String(headerBytes)
+    if (header.match(/^[0-9]+:[0-9]+$/)) {
+      return header
+    }
+  } catch (error) {}
+  return ""
+}
+
+const decryptHeaderRanges = async (
+  key: Uint8Array,
+  iv: Uint8Array,
+  headers: Uint8Array
+) =>
+  createHeaderRanges(headers).reduce(async (promise, { start, end }) => {
+    const header = await promise
+    if (header) {
+      return header
+    }
+    return decryptHeaderRange(key, iv, headers, start, end)
+  }, Promise.resolve(""))
 
 const decryptHeaders = async (
   key: Uint8Array,
   iv: Uint8Array,
   headers: Uint8Array
 ) => {
-  const result = await createHeaderRanges(headers).reduce(
-    async (promise, { start, end }) => {
-      const header: string = await promise
-      if (header) {
-        return header
-      }
-      try {
-        const str = await decryptHeader(key, iv, headers, start, end)
-        if (str.match(/^[0-9]+:[0-9]+$/)) {
-          return str
-        }
-      } catch (error) {}
-      return header
-    },
-    Promise.resolve("")
-  )
-  if (!result) {
+  const header = await decryptHeaderRanges(key, iv, headers)
+  if (!header) {
     throw new Error("Header not found")
   }
-  const [dataStart, dataSize] = result
+  const [dataStart, dataSize] = header
     .split(":")
     .map((value: string) => parseInt(value))
   return [dataStart, dataStart + dataSize]
@@ -62,9 +70,9 @@ const decryptData = (
   ciphertextEnd: number
 ) => {
   const ciphertext = data.subarray(ciphertextStart, ciphertextEnd)
-  const ivEnd = ciphertextEnd + 12
+  const ivEnd = ciphertextEnd + GCM_IV_LENGTH
   const iv = data.subarray(ciphertextEnd, ivEnd)
-  const authTag = data.subarray(ivEnd, ivEnd + 16)
+  const authTag = data.subarray(ivEnd, ivEnd + GCM_TAG_LENGTH)
   return decryptGCM(key, iv, ciphertext, authTag)
 }
 
@@ -86,10 +94,10 @@ const decrypt = async (
   data: Uint8Array,
   kdf: Kdf
 ): Promise<Uint8Array> => {
-  const key = await kdf(passphrase, toBase64(salt))
+  const key = await kdf(passphrase, salt)
   const [dataStart, dataEnd] = await decryptHeaders(key, iv, headers)
   const message = await decryptData(key, data, dataStart, dataEnd)
-  return isWebEnvironment() ? message : Buffer.from(message)
+  return isWebEnv() ? message : Buffer.from(message)
 }
 
 export default decrypt
