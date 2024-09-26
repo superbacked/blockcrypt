@@ -29,6 +29,10 @@ const insecureKdf = async (
 const referenceSalt = Buffer.from("Com4/aFtBjaGdvbjgi5UNw==", "base64")
 const referenceIv = Buffer.from("u05uhhQe3NDtCf39rsxnig==", "base64")
 const referenceHeadersSignature = Buffer.from(
+  "gqJZZMSiyzw4pohc+FJuRYEOYT+TaQr+lvch7mz8KwFyzPAL7Qjj8JI/3fSzal/Lw52Ah0rAvZTQ+ELZIhUFtA==",
+  "base64"
+)
+const legacyReferenceHeadersSignature = Buffer.from(
   "UJO8m9woe0CrEkyHqOuLN9AN9x7wkTOprSYeFHMaMm29z6l7CmeXeO7IlcUorqytXy2zChcJdDN0z6ulBCXs+g==",
   "base64"
 )
@@ -59,6 +63,28 @@ test("confirms block matches reference", async () => {
     Buffer.compare(
       block.headers.subarray(0, 32),
       referenceHeadersSignature.subarray(0, 32)
+    )
+  ).toEqual(0)
+  expect(block.data.length).toEqual(384)
+})
+
+test("confirms legacy block matches legacy reference", async () => {
+  const block = await encrypt(
+    secrets,
+    insecureKdf,
+    null,
+    null,
+    referenceSalt,
+    referenceIv,
+    true
+  )
+  expect(block.salt).toEqual(referenceSalt)
+  expect(block.iv).toEqual(referenceIv)
+  expect(block.headers.length).toEqual(64)
+  expect(
+    Buffer.compare(
+      block.headers.subarray(0, 32),
+      legacyReferenceHeadersSignature.subarray(0, 32)
     )
   ).toEqual(0)
   expect(block.data.length).toEqual(384)
@@ -124,7 +150,7 @@ test("fails to encrypt secrets using default headers length that is to short for
 })
 
 test("encrypts secrets using unusual but valid headers length", async () => {
-  const headersLength = 120
+  const headersLength = 128
   const block = await encrypt(secrets, insecureKdf, headersLength)
   expect(block.headers.length).toEqual(headersLength)
 })
@@ -186,13 +212,13 @@ test("fails to encrypt secrets using auto data length that is to short for data"
 
 test("encrypts secret 1 using minimum required data length", async () => {
   const secret1 = secrets[0]
-  const dataLength = getDataLength(secret1.message)
+  const dataLength = Math.ceil(getDataLength(secret1.message) / 16) * 16
   const block = await encrypt([secret1], insecureKdf, null, dataLength)
   expect(block).toBeDefined()
 })
 
-test("encrypts secrets using unusual but valid data length", async () => {
-  const dataLength = 1016
+test("encrypts secrets using larger than required data length", async () => {
+  const dataLength = 1024
   const block = await encrypt(secrets, insecureKdf, null, dataLength)
   expect(block.data.length).toEqual(dataLength)
 })
