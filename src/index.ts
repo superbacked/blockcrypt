@@ -48,8 +48,8 @@ export const getDataLength = (message: Message) => {
  * Encrypt secrets using Blockcrypt
  * @param secrets secrets
  * @param kdf key derivation function
- * @param headersLength optional, headers length in increments of `8` bytes (defaults to `64`)
- * @param dataLength optional, data length in increments of `8` bytes (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of `64` bytes)
+ * @param headersLength optional, headers length in increments of `16` bytes (defaults to `64`)
+ * @param dataLength optional, data length in increments of `16` bytes (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of `64` bytes)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
  * @returns block
@@ -65,12 +65,12 @@ export const encrypt = async (
   if (!validateSecrets(secrets)) {
     throw new Error("Invalid secrets")
   }
-  if (headersLength && headersLength % 8 !== 0) {
+  if (headersLength && headersLength % 16 !== 0) {
     throw new Error("Invalid headers length")
   } else if (!headersLength) {
     headersLength = 64
   }
-  if (dataLength && dataLength % 8 !== 0) {
+  if (dataLength && dataLength % 16 !== 0) {
     throw new Error("Invalid data length")
   }
   if (!salt) {
