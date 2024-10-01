@@ -30,12 +30,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/sunknudsen/blockcrypt.git"
+    "url": "https://github.com/superbacked/blockcrypt.git"
   },
   "bugs": {
-    "url": "https://github.com/sunknudsen/blockcrypt/issues"
+    "url": "https://github.com/superbacked/blockcrypt/issues"
   },
-  "homepage": "https://github.com/sunknudsen/blockcrypt#readme",
+  "homepage": "https://github.com/superbacked/blockcrypt#readme",
   "prettier": {
     "endOfLine": "lf",
     "printWidth": 80,
