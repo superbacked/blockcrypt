@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "crypto"
 
 export type Message = Buffer | string
 
@@ -48,10 +48,11 @@ export const getDataLength = (message: Message) => {
  * Encrypt secrets using Blockcrypt
  * @param secrets secrets
  * @param kdf key derivation function
- * @param headersLength optional, headers length in increments of `8` bytes (defaults to `64`)
- * @param dataLength optional, data length in increments of `8` bytes (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of `64` bytes)
+ * @param headersLength optional, headers length in increments of `16` bytes (defaults to `64`)
+ * @param dataLength optional, data length in increments of `16` bytes (defaults to first secret ciphertext buffer length * 2 rounded to nearest upper increment of `64` bytes)
  * @param salt optional, salt used for deterministic unit tests
  * @param iv optional, initialization vector used for deterministic unit tests
+ * @param legacyMode optional, disables use of HKDF subkeys (defaults to `false`)
  * @returns block
  */
 export const encrypt = async (
@@ -60,17 +61,18 @@ export const encrypt = async (
   headersLength?: number,
   dataLength?: number,
   salt?: Buffer,
-  iv?: Buffer
+  iv?: Buffer,
+  legacyMode?: boolean
 ): Promise<Block> => {
   if (!validateSecrets(secrets)) {
     throw new Error("Invalid secrets")
   }
-  if (headersLength && headersLength % 8 !== 0) {
+  if (headersLength && headersLength % 16 !== 0) {
     throw new Error("Invalid headers length")
   } else if (!headersLength) {
     headersLength = 64
   }
-  if (dataLength && dataLength % 8 !== 0) {
+  if (dataLength && dataLength % 16 !== 0) {
     throw new Error("Invalid data length")
   }
   if (!salt) {
@@ -84,8 +86,14 @@ export const encrypt = async (
   let dataStart = 0
   for (const [index, secret] of secrets.entries()) {
     const key = await kdf(secret.passphrase, salt.toString("base64"))
+    const dataKey =
+      legacyMode === true ? key : hkdfSync("sha256", key, "", "data", 32)
     const dataIv = randomBytes(12)
-    const dataCipher = createCipheriv("aes-256-gcm", key, dataIv)
+    const dataCipher = createCipheriv(
+      "aes-256-gcm",
+      Buffer.from(dataKey),
+      dataIv
+    )
     const dataEnciphered = dataCipher.update(secret.message)
     const dataEncipheredFinal = Buffer.concat([
       dataEnciphered,
@@ -93,7 +101,13 @@ export const encrypt = async (
     ])
     const dataAuthTag = dataCipher.getAuthTag()
     const dataEncipheredFinalLength = dataEncipheredFinal.length
-    const headersCipher = createCipheriv("aes-256-cbc", key, iv)
+    const headersKey =
+      legacyMode === true ? key : hkdfSync("sha256", key, "", "headers", 32)
+    const headersCipher = createCipheriv(
+      "aes-256-cbc",
+      Buffer.from(headersKey),
+      iv
+    )
     const headersEnciphered = headersCipher.update(
       `${dataStart}:${dataEncipheredFinalLength}`
     )
@@ -139,6 +153,7 @@ export const encrypt = async (
  * @param headers headers
  * @param data data
  * @param kdf key derivation function
+ * @param legacyMode optional, disables use of HKDF subkeys (defaults to `false`)
  * @returns message
  */
 export const decrypt = async (
@@ -147,7 +162,8 @@ export const decrypt = async (
   iv: Buffer,
   headers: Buffer,
   data: Buffer,
-  kdf: Kdf
+  kdf: Kdf,
+  legacyMode?: boolean
 ): Promise<Buffer> => {
   const key = await kdf(passphrase, salt.toString("base64"))
   let headerStart = 0
@@ -155,7 +171,13 @@ export const decrypt = async (
   while (headerStart < headers.length) {
     for (let headerEnd = headers.length; headerEnd > headerStart; headerEnd--) {
       try {
-        const headersDecipher = createDecipheriv("aes-256-cbc", key, iv)
+        const headersKey =
+          legacyMode === true ? key : hkdfSync("sha256", key, "", "headers", 32)
+        const headersDecipher = createDecipheriv(
+          "aes-256-cbc",
+          Buffer.from(headersKey),
+          iv
+        )
         const headersDeciphered = headersDecipher.update(
           headers.subarray(headerStart, headerEnd)
         )
@@ -188,12 +210,18 @@ export const decrypt = async (
     parseInt(dataEncipheredFinalStart),
     dataEncipheredFinalEnd
   )
+  const dataKey =
+    legacyMode === true ? key : hkdfSync("sha256", key, "", "data", 32)
   const dataIvStart = dataEncipheredFinalEnd
   const dataIvEnd = dataIvStart + 12
   const dataIv = data.subarray(dataIvStart, dataIvEnd)
   const dataAuthTagStart = dataIvEnd
   const dataAuthTag = data.subarray(dataAuthTagStart, dataAuthTagStart + 16)
-  const dataDecipher = createDecipheriv("aes-256-gcm", key, dataIv)
+  const dataDecipher = createDecipheriv(
+    "aes-256-gcm",
+    Buffer.from(dataKey),
+    dataIv
+  )
   dataDecipher.setAuthTag(dataAuthTag)
   const dataDeciphered = dataDecipher.update(dataEncipheredFinal)
   const dataDecipheredFinal = Buffer.concat([
