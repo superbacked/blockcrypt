@@ -2,7 +2,9 @@
 
 ## Encrypt one or more secrets with plausible deniability by design.
 
-Blockcrypt is used to encrypt one or more secrets (up to 4 by default) using encrypted headers which are indistinguishable from each other, data and padding resulting in plausible deniability by design.
+Blockcrypt is used to encrypt one or more secrets (up to 4 by default) using
+encrypted headers which are indistinguishable from each other, data and padding
+resulting in plausible deniability by design.
 
 ## Installation
 
@@ -13,7 +15,7 @@ $ npm install blockcrypt
 ## Usage (simplified for demonstration purposes)
 
 ```typescript
-import { encrypt, decrypt, Secret } from "blockcrypt"
+import { decrypt, encrypt, Secret } from "blockcrypt"
 
 const secrets: Secret[] = [
   {
@@ -47,7 +49,7 @@ const message = await decrypt(
   block.iv,
   block.headers,
   block.data,
-  kdf
+  kdf,
 )
 
 console.log(message)

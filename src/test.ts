@@ -1,5 +1,5 @@
 import { createHmac } from "crypto"
-import { encrypt, decrypt, getDataLength, Secret } from "./index"
+import { decrypt, encrypt, getDataLength, Secret } from "./index"
 
 const secrets: Secret[] = [
   {
@@ -19,7 +19,7 @@ const secrets: Secret[] = [
 
 const insecureKdf = async (
   passphrase: string,
-  salt: string
+  salt: string,
 ): Promise<Buffer> => {
   const hmac = createHmac("sha256", salt)
   const data = hmac.update(passphrase)
@@ -30,11 +30,11 @@ const referenceSalt = Buffer.from("Com4/aFtBjaGdvbjgi5UNw==", "base64")
 const referenceIv = Buffer.from("u05uhhQe3NDtCf39rsxnig==", "base64")
 const referenceHeadersSignature = Buffer.from(
   "gqJZZMSiyzw4pohc+FJuRYEOYT+TaQr+lvch7mz8KwFyzPAL7Qjj8JI/3fSzal/Lw52Ah0rAvZTQ+ELZIhUFtA==",
-  "base64"
+  "base64",
 )
 const legacyReferenceHeadersSignature = Buffer.from(
   "UJO8m9woe0CrEkyHqOuLN9AN9x7wkTOprSYeFHMaMm29z6l7CmeXeO7IlcUorqytXy2zChcJdDN0z6ulBCXs+g==",
-  "base64"
+  "base64",
 )
 
 test("gets data length of secret 1 as string", async () => {
@@ -54,7 +54,7 @@ test("confirms block matches reference", async () => {
     null,
     null,
     referenceSalt,
-    referenceIv
+    referenceIv,
   )
   expect(block.salt).toEqual(referenceSalt)
   expect(block.iv).toEqual(referenceIv)
@@ -62,8 +62,8 @@ test("confirms block matches reference", async () => {
   expect(
     Buffer.compare(
       block.headers.subarray(0, 32),
-      referenceHeadersSignature.subarray(0, 32)
-    )
+      referenceHeadersSignature.subarray(0, 32),
+    ),
   ).toEqual(0)
   expect(block.data.length).toEqual(384)
 })
@@ -76,7 +76,7 @@ test("confirms legacy block matches legacy reference", async () => {
     null,
     referenceSalt,
     referenceIv,
-    true
+    true,
   )
   expect(block.salt).toEqual(referenceSalt)
   expect(block.iv).toEqual(referenceIv)
@@ -84,8 +84,8 @@ test("confirms legacy block matches legacy reference", async () => {
   expect(
     Buffer.compare(
       block.headers.subarray(0, 32),
-      legacyReferenceHeadersSignature.subarray(0, 32)
-    )
+      legacyReferenceHeadersSignature.subarray(0, 32),
+    ),
   ).toEqual(0)
   expect(block.data.length).toEqual(384)
 })
@@ -140,9 +140,9 @@ test("fails to encrypt secrets using default headers length that is to short for
         {
           message: "bar",
           passphrase: "lurk entry clip tidal cinch",
-        }
+        },
       ),
-      insecureKdf
+      insecureKdf,
     )
   } catch (error) {
     expect(error.message).toEqual("Headers too long for headers length")
@@ -201,9 +201,9 @@ test("fails to encrypt secrets using auto data length that is to short for data"
           message:
             "leaf spawn guitar immune diagram height flag once giant tell pepper sugar sphere stomach coach erase fatigue lens tunnel love range flight embark control",
           passphrase: "mate cedar brook flop snowy",
-        }
+        },
       ),
-      insecureKdf
+      insecureKdf,
     )
   } catch (error) {
     expect(error.message).toEqual("Data too long for data length")
@@ -233,7 +233,7 @@ test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", as
       block.iv,
       block.headers,
       block.data,
-      insecureKdf
+      insecureKdf,
     )
   } catch (error) {
     expect(error.message).toEqual("Header not found")
@@ -248,7 +248,7 @@ test("encrypts secrets and decrypts secret 1", async () => {
     block.iv,
     block.headers,
     block.data,
-    insecureKdf
+    insecureKdf,
   )
   expect(secret.toString()).toEqual(secrets[0].message)
 })
@@ -261,7 +261,7 @@ test("encrypts secrets and decrypts secret 2", async () => {
     block.iv,
     block.headers,
     block.data,
-    insecureKdf
+    insecureKdf,
   )
   expect(secret.toString()).toEqual(secrets[1].message)
 })
@@ -274,7 +274,7 @@ test("encrypts secrets and decrypts secret 3", async () => {
     block.iv,
     block.headers,
     block.data,
-    insecureKdf
+    insecureKdf,
   )
   expect(secret).toEqual(secrets[2].message)
 })
