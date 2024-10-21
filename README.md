@@ -2,9 +2,9 @@
 
 ## Encrypt one or more secrets with plausible deniability by design.
 
-Blockcrypt is used to encrypt one or more secrets (up to 4 by default) using
-encrypted headers which are indistinguishable from each other, data and padding
-resulting in plausible deniability by design.
+Blockcrypt is used to encrypt one or more secrets using encrypted headers which
+are indistinguishable from each other, data and padding resulting in plausible
+deniability by design.
 
 ## Installation
 
@@ -33,22 +33,14 @@ const secrets: Secret[] = [
   },
 ]
 
-const block = await encrypt(secrets, kdf)
+const block = await encrypt(secrets, kdf, 1024)
 
 console.log(block)
-// {
-//   salt: <Buffer 0a 89 b8 fd a1 6d 06 36 86 76 f6 e3 82 2e 54 37>,
-//   iv: <Buffer bb 4e 6e 86 14 1e dc d0 ed 09 fd fd ae cc 67 8a>,
-//   headers: <Buffer 82 a2 59 64 c4 a2 cb 3c 38 a6 88 5c f8 52 6e 45 81 0e 61 3f 93 69 0a fe 96 f7 21 ee 6c fc 2b 01 72 cc f0 0b ed 08 e3 f0 92 3f dd f4 b3 6a 5f cb ef 7f ... 14 more bytes>,
-//   data: <Buffer 5c 68 a6 9e 30 e2 cb 34 ed 70 7c 92 fc 57 af f6 4f 55 a4 7e 28 d5 8a 0f 39 bd fa f4 24 ad ca f9 e1 3e cb 37 89 70 d6 2e 18 1f 8d 34 30 95 42 ac a7 a2 ... 334 more bytes>
-// }
+// <Buffer 0e 2f ee 5f f1 69 df 6a b7 ff 43 ca 65 70 36 6b 38 cf b0 d7 23 cb f2 ca 63 1c 16 bf da 02 da 1c 2f 89 ca fe 29 36 d2 5c 1a 44 c3 32 23 02 56 ba 29 21 ... 974 more bytes>
 
 const message = await decrypt(
   "grunt daisy chow barge pants",
-  block.salt,
-  block.iv,
-  block.headers,
-  block.data,
+  block
   kdf,
 )
 

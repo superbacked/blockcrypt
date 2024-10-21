@@ -14,83 +14,83 @@ export interface Secret {
 
 export type Kdf = (passphrase: string, salt: string) => Promise<Buffer>
 
-export interface Block {
-  salt: Buffer
-  iv: Buffer
-  headers: Buffer
-  data: Buffer
-}
-
 export const getDataLength = (message: Message): number => {
   const messageLength = Buffer.from(message).byteLength
-  return messageLength + 12 + 16
+  return messageLength + 16
 }
 
 const deriveKey = (
   ikm: Buffer,
   context: string,
-  legacyMode: boolean,
 ): Buffer => {
-  if (legacyMode) {
-    return ikm
-  }
   const okm = hkdfSync("sha256", ikm, "", context, 32)
   return Buffer.from(okm)
 }
 
-const encryptHeader = (
-  key: Buffer,
-  iv: Buffer,
-  dataStart: number,
-  dataSize: number,
-  legacyMode: boolean,
-): Buffer => {
+const deriveKeys = async (
+  passphrase: string,
+  salt: Buffer,
+  kdf: Kdf,
+): Promise<[Buffer, Buffer]> => {
+  const ikm = await kdf(passphrase, salt.toString("base64"))
+  const headerKey = deriveKey(ikm, "header")
+  const messageKey = deriveKey(ikm, "message")
+  return [headerKey, messageKey]
+}
+
+const encryptPlaintext = (key: Buffer, plaintext: Buffer): Buffer => {
   const cipher = createCipheriv(
-    "aes-256-cbc",
-    deriveKey(key, "headers", legacyMode),
-    iv,
+    "chacha20-poly1305",
+    key,
+    Buffer.alloc(12),
   )
   return Buffer.concat([
-    cipher.update(`${dataStart}:${dataSize}`),
+    cipher.update(plaintext),
     cipher.final(),
+    // @ts-ignore
+    cipher.getAuthTag(),
+  ])
+}
+
+const pad = (message: Message): Buffer => {
+  const plaintext = Buffer.from(message)
+  const desiredSize = Math.ceil(plaintext.byteLength / 8) * 8
+  return Buffer.concat([
+    plaintext,
+    Buffer.from([128]),
+    Buffer.alloc(desiredSize - plaintext.byteLength - 1),
   ])
 }
 
 const encryptMessage = (
   key: Buffer,
-  message: Buffer,
-  legacyMode: boolean,
+  message: Message,
+): Buffer => encryptPlaintext(key, pad(message))
+
+const encryptHeader = (
+  key: Buffer,
+  ciphertext: Buffer,
 ): Buffer => {
-  const iv = randomBytes(12)
-  const cipher = createCipheriv(
-    "aes-256-gcm",
-    deriveKey(key, "data", legacyMode),
-    iv,
-  )
-  return Buffer.concat([
-    cipher.update(message),
-    cipher.final(),
-    iv,
-    cipher.getAuthTag(),
-  ])
+  const header = Buffer.alloc(8)
+  const view = new DataView(header.buffer)
+  view.setUint32(4, ciphertext.byteLength)
+  return encryptPlaintext(key, header)
 }
 
-const encryptSecret = (
-  key: Buffer,
-  iv: Buffer,
-  message: Buffer,
-  data: Buffer,
-  legacyMode: boolean,
-): [Buffer, Buffer] => {
-  const dataCiphertext = encryptMessage(key, message, legacyMode)
-  const headerCiphertext = encryptHeader(
-    key,
-    iv,
-    data.byteLength,
-    message.byteLength,
-    legacyMode,
+const encryptSecret = async (
+  passphrase: string,
+  salt: Buffer,
+  kdf: Kdf,
+  message: Message,
+): Promise<Buffer> => {
+  const [headerKey, messageKey] = await deriveKeys(
+    passphrase,
+    salt,
+    kdf,
   )
-  return [headerCiphertext, dataCiphertext]
+  const ciphertext = encryptMessage(messageKey, message)
+  const header = encryptHeader(headerKey, ciphertext)
+  return Buffer.concat([header, ciphertext])
 }
 
 const addNoise = (bytes: Buffer, desiredLength: number): Buffer => {
@@ -98,74 +98,41 @@ const addNoise = (bytes: Buffer, desiredLength: number): Buffer => {
   return Buffer.concat([bytes, noise])
 }
 
-class Blockcrypt {
+class Block {
+  blockSize: number
+  block: Buffer
   kdf: Kdf
-  headersLength: number
-  dataLength?: number
   salt: Buffer
-  iv: Buffer
-  legacyMode: boolean
-  headers: Buffer
-  data: Buffer
 
   constructor(
+    blockSize: number,
     kdf: Kdf,
-    headersLength?: number,
-    dataLength?: number,
-    salt?: Buffer,
-    iv?: Buffer,
-    legacyMode?: boolean,
   ) {
-    if (headersLength && headersLength % 16 !== 0) {
-      throw new Error("Invalid headers length")
+    if (blockSize === 0 || blockSize % 8 !== 0) {
+      throw new Error("Invalid block size")
     }
-    if (dataLength && dataLength % 16 !== 0) {
-      throw new Error("Invalid data length")
-    }
+    this.blockSize = blockSize
+    this.block = Buffer.from([])
     this.kdf = kdf
-    this.headersLength = headersLength || 64
-    this.dataLength = dataLength
-    this.salt = salt || randomBytes(16)
-    this.iv = iv || randomBytes(16)
-    this.legacyMode = legacyMode === true
-    this.headers = Buffer.from([])
-    this.data = Buffer.from([])
+    this.salt = randomBytes(16)
   }
 
   async encrypt(passphrase: string, message: Message) {
-    const key = await this.kdf(passphrase, this.salt.toString("base64"))
-    const [header, data] = encryptSecret(
-      key,
-      this.iv,
-      Buffer.from(message),
-      this.data,
-      this.legacyMode,
+    const entry = await encryptSecret(
+      passphrase,
+      this.salt,
+      this.kdf,
+      message,
     )
-    if (!this.dataLength && this.data.byteLength == 0) {
-      this.dataLength = Math.ceil((data.byteLength * 2) / 64) * 64
-    }
-    this.headers = Buffer.concat([this.headers, header])
-    this.data = Buffer.concat([this.data, data])
+    this.block = Buffer.concat([this.block, entry])
   }
 
-  finalize(): Block {
-    if (!this.dataLength) {
-      throw new Error("Unknown data length")
+  finalize(): Buffer {
+    this.block = Buffer.concat([this.salt, this.block])
+    if (this.block.byteLength > this.blockSize) {
+      throw new Error("Block size exceeded")
     }
-    if (this.data.byteLength > this.dataLength) {
-      throw new Error("Data too long for data length")
-    }
-    if (this.headers.byteLength > this.headersLength) {
-      throw new Error("Headers too long for headers length")
-    }
-    const headers = addNoise(this.headers, this.headersLength)
-    const data = addNoise(this.data, this.dataLength)
-    return {
-      salt: this.salt,
-      iv: this.iv,
-      headers,
-      data,
-    }
+    return addNoise(this.block, this.blockSize)
   }
 }
 
@@ -181,97 +148,93 @@ const isValidSecrets = (secrets: Secret[]): boolean =>
 export const encrypt = async (
   secrets: Secret[],
   kdf: Kdf,
-  headersLength?: number,
-  dataLength?: number,
-  salt?: Buffer,
-  iv?: Buffer,
-  legacyMode?: boolean,
-): Promise<Block> => {
+  blockSize: number,
+): Promise<Buffer> => {
   if (!isValidSecrets(secrets)) {
     throw new Error("Invalid secrets")
   }
-  const block = new Blockcrypt(
-    kdf,
-    headersLength,
-    dataLength,
-    salt,
-    iv,
-    legacyMode,
-  )
+  const block = new Block(blockSize, kdf)
   await Promise.all(
     secrets.map((secret) => block.encrypt(secret.passphrase, secret.message)),
   )
   return block.finalize()
 }
 
+const decryptCiphertext = (key: Buffer, ciphertext: Buffer): Buffer => {
+  const decipher = createDecipheriv(
+    "chacha20-poly1305",
+    key,
+    Buffer.alloc(12),
+  )
+  // @ts-ignore
+  decipher.setAuthTag(ciphertext.subarray(-16))
+  return Buffer.concat([
+    decipher.update(ciphertext.subarray(0, ciphertext.byteLength - 16)),
+    decipher.final(),
+  ])
+}
+
+const parseHeader = (header: Buffer, start: number): [number, number] => {
+  const view = new DataView(header.buffer, header.byteOffset, header.byteLength)
+  const size = view.getUint32(4)
+  return [start, start + size]
+}
+
 const decryptHeader = (
   key: Buffer,
-  iv: Buffer,
-  headers: Buffer,
-  start: number,
-  end: number,
-): [number, number] | null => {
-  try {
-    const decipher = createDecipheriv("aes-256-cbc", key, iv)
-    const plaintext = Buffer.concat([
-      decipher.update(headers.subarray(start, end)),
-      decipher.final(),
-    ])
-    const header = plaintext.toString()
-    if (header.match(/^[0-9]+:[0-9]+$/)) {
-      const offsets = header.split(":")
-      const dataStart = parseInt(offsets[0])
-      const dataSize = parseInt(offsets[1])
-      return [dataStart, dataStart + dataSize]
-    }
-  } catch {
-    return null
-  }
-}
-
-const decryptHeaders = (
-  key: Buffer,
-  iv: Buffer,
-  headers: Buffer,
+  block: Buffer,
 ): [number, number] => {
-  for (let start = 0; start < headers.byteLength; start++) {
-    for (let end = headers.byteLength; end > start; end--) {
-      const dataOffsets = decryptHeader(key, iv, headers, start, end)
-      if (dataOffsets) {
-        return dataOffsets
-      }
-    }
+  for (let start = 0; start < block.byteLength; start += 8) {
+    try {
+      const end = start + 24
+      const header = decryptCiphertext(key, block.subarray(start, end))
+      return parseHeader(header, end)
+    } catch {}
   }
-  throw new Error("Header not found")
+  throw new Error("Decryption failed")
 }
 
-const decryptMessage = (
-  key: Buffer,
-  data: Buffer,
-  start: number,
-  end: number,
+const calculateUnpaddedSize = (padded: Buffer): number => {
+  const size = padded.byteLength
+  for (let i = size - 1; i >= size - 8; i--) {
+    const byte = padded[i]
+    if (byte === 128) {
+      return i
+    }
+    if (byte !== 0) {
+      return 0
+    }
+  }
+  return 0
+}
+
+const unpad = (message: Buffer): Buffer => {
+  const size = calculateUnpaddedSize(message)
+  if (size === 0) {
+    throw new Error("Invalid padding")
+  }
+  return message.subarray(0, size)
+}
+
+const decryptSecret = (
+  headerKey: Buffer,
+  messageKey: Buffer,
+  block: Buffer,
 ): Buffer => {
-  const ciphertext = data.subarray(start, end)
-  const ivEnd = end + 12
-  const iv = data.subarray(end, ivEnd)
-  const authTag = data.subarray(ivEnd, ivEnd + 16)
-  const decipher = createDecipheriv("aes-256-gcm", key, iv)
-  decipher.setAuthTag(authTag)
-  return Buffer.concat([decipher.update(ciphertext), decipher.final()])
+  const [start, end] = decryptHeader(headerKey, block)
+  const message = decryptCiphertext(messageKey, block.subarray(start, end))
+  return unpad(message)
 }
 
 export const decrypt = async (
   passphrase: string,
-  salt: Buffer,
-  iv: Buffer,
-  headers: Buffer,
-  data: Buffer,
+  block: Buffer,
   kdf: Kdf,
-  legacyMode?: boolean,
 ): Promise<Buffer> => {
-  const key = await kdf(passphrase, salt.toString("base64"))
-  const headersKey = deriveKey(key, "headers", legacyMode)
-  const dataKey = deriveKey(key, "data", legacyMode)
-  const [dataStart, dataEnd] = decryptHeaders(headersKey, iv, headers)
-  return decryptMessage(dataKey, data, dataStart, dataEnd)
+  const [headerKey, messageKey] = await deriveKeys(
+    passphrase,
+    block.subarray(0, 16),
+    kdf,
+  )
+  return decryptSecret(headerKey, messageKey, block.subarray(16))
 }

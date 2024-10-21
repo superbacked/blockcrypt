@@ -26,74 +26,20 @@ const insecureKdf = async (
   return Buffer.from(data.digest("base64"), "base64")
 }
 
-const referenceSalt = Buffer.from("Com4/aFtBjaGdvbjgi5UNw==", "base64")
-const referenceIv = Buffer.from("u05uhhQe3NDtCf39rsxnig==", "base64")
-const referenceHeadersSignature = Buffer.from(
-  "gqJZZMSiyzw4pohc+FJuRYEOYT+TaQr+lvch7mz8KwFyzPAL7Qjj8JI/3fSzal/Lw52Ah0rAvZTQ+ELZIhUFtA==",
-  "base64",
-)
-const legacyReferenceHeadersSignature = Buffer.from(
-  "UJO8m9woe0CrEkyHqOuLN9AN9x7wkTOprSYeFHMaMm29z6l7CmeXeO7IlcUorqytXy2zChcJdDN0z6ulBCXs+g==",
-  "base64",
-)
-
 test("gets data length of secret 1 as string", async () => {
-  const dataLength = getDataLength(Buffer.from(secrets[0].message))
-  expect(dataLength).toEqual(184)
+  const dataLength = getDataLength(secrets[0].message)
+  expect(dataLength).toEqual(172)
 })
 
 test("gets data length of secret 1 as buffer", async () => {
   const dataLength = getDataLength(Buffer.from(secrets[0].message))
-  expect(dataLength).toEqual(184)
-})
-
-test("confirms block matches reference", async () => {
-  const block = await encrypt(
-    secrets,
-    insecureKdf,
-    null,
-    null,
-    referenceSalt,
-    referenceIv,
-  )
-  expect(block.salt).toEqual(referenceSalt)
-  expect(block.iv).toEqual(referenceIv)
-  expect(block.headers.length).toEqual(64)
-  expect(
-    Buffer.compare(
-      block.headers.subarray(0, 32),
-      referenceHeadersSignature.subarray(0, 32),
-    ),
-  ).toEqual(0)
-  expect(block.data.length).toEqual(384)
-})
-
-test("confirms legacy block matches legacy reference", async () => {
-  const block = await encrypt(
-    secrets,
-    insecureKdf,
-    null,
-    null,
-    referenceSalt,
-    referenceIv,
-    true,
-  )
-  expect(block.salt).toEqual(referenceSalt)
-  expect(block.iv).toEqual(referenceIv)
-  expect(block.headers.length).toEqual(64)
-  expect(
-    Buffer.compare(
-      block.headers.subarray(0, 32),
-      legacyReferenceHeadersSignature.subarray(0, 32),
-    ),
-  ).toEqual(0)
-  expect(block.data.length).toEqual(384)
+  expect(dataLength).toEqual(172)
 })
 
 test("fails to encrypt no secrets", async () => {
   expect.assertions(1)
   try {
-    await encrypt([], insecureKdf)
+    await encrypt([], insecureKdf, 1024)
   } catch (error) {
     expect(error.message).toEqual("Invalid secrets")
   }
@@ -109,171 +55,67 @@ test("fails to encrypt invalid secrets", async () => {
   }
 })
 
-test("fails to encrypt secrets using invalid headers length", async () => {
-  expect.assertions(1)
-  try {
-    await encrypt(secrets, insecureKdf, 127)
-  } catch (error) {
-    expect(error.message).toEqual("Invalid headers length")
-  }
-})
-
-test("fails to encrypt secrets using headers length that is to short for headers", async () => {
+test("fails to encrypt secrets using block size that is too short", async () => {
   expect.assertions(1)
   try {
     await encrypt(secrets, insecureKdf, 32)
   } catch (error) {
-    expect(error.message).toEqual("Headers too long for headers length")
+    expect(error.message).toEqual("Block size exceeded")
   }
 })
 
-test("fails to encrypt secrets using default headers length that is to short for headers", async () => {
-  expect.assertions(1)
-  try {
-    await encrypt(
-      [].concat(
-        ...secrets,
-        {
-          message: "foo",
-          passphrase: "mousy ditch pull prize stall",
-        },
-        {
-          message: "bar",
-          passphrase: "lurk entry clip tidal cinch",
-        },
-      ),
-      insecureKdf,
-    )
-  } catch (error) {
-    expect(error.message).toEqual("Headers too long for headers length")
-  }
-})
-
-test("encrypts secrets using unusual but valid headers length", async () => {
-  const headersLength = 128
-  const block = await encrypt(secrets, insecureKdf, headersLength)
-  expect(block.headers.length).toEqual(headersLength)
-})
-
-test("fails to encrypt secret 1 using invalid data length", async () => {
-  expect.assertions(1)
-  try {
-    const secret1 = secrets[0]
-    const dataLength = getDataLength(secret1.message)
-    await encrypt([secret1], insecureKdf, null, dataLength - 1)
-  } catch (error) {
-    expect(error.message).toEqual("Invalid data length")
-  }
-})
-
-test("fails to encrypt secret 1 using minimum required data length minus 8", async () => {
-  expect.assertions(1)
-  try {
-    const secret1 = secrets[0]
-    const dataLength = getDataLength(secret1.message)
-    await encrypt([secret1], insecureKdf, 128, dataLength - 8)
-  } catch (error) {
-    expect(error.message).toEqual("Data too long for data length")
-  }
-})
-
-test("fails to encrypt secrets using data length that is to short for data", async () => {
-  expect.assertions(1)
-  try {
-    await encrypt(secrets, insecureKdf, null, 256)
-  } catch (error) {
-    expect(error.message).toEqual("Data too long for data length")
-  }
-})
-
-test("fails to encrypt secrets using auto data length that is to short for data", async () => {
-  expect.assertions(1)
-  try {
-    await encrypt(
-      [].concat(
-        ...secrets,
-        {
-          message:
-            "apple detail zoo peanut plastic reject payment renew box coconut ivory media gold antique scorpion settle trip gaze rain slender sunny hidden mule old",
-          passphrase: "tart equal payer early axis",
-        },
-        {
-          message:
-            "leaf spawn guitar immune diagram height flag once giant tell pepper sugar sphere stomach coach erase fatigue lens tunnel love range flight embark control",
-          passphrase: "mate cedar brook flop snowy",
-        },
-      ),
-      insecureKdf,
-    )
-  } catch (error) {
-    expect(error.message).toEqual("Data too long for data length")
-  }
-})
-
-test("encrypts secret 1 using minimum required data length", async () => {
+test("encrypts secret 1 using minimum required block size", async () => {
   const secret1 = secrets[0]
-  const dataLength = Math.ceil(getDataLength(secret1.message) / 16) * 16
-  const block = await encrypt([secret1], insecureKdf, null, dataLength)
-  expect(block).toBeDefined()
+  const blockSize = 16 + 24 + Math.ceil(getDataLength(secret1.message) / 8) * 8
+  const block = await encrypt([secret1], insecureKdf, blockSize)
+  expect(block.byteLength).toBe(blockSize)
 })
 
 test("encrypts secrets using larger than required data length", async () => {
-  const dataLength = 1024
-  const block = await encrypt(secrets, insecureKdf, null, dataLength)
-  expect(block.data.length).toEqual(dataLength)
+  const blockSize = 1024
+  const block = await encrypt(secrets, insecureKdf, blockSize)
+  expect(block.byteLength).toEqual(blockSize)
 })
 
 test("encrypts secrets and fails to decrypt secret 1 using wrong passphrase", async () => {
   expect.assertions(1)
   try {
-    const block = await encrypt(secrets, insecureKdf)
+    const block = await encrypt(secrets, insecureKdf, 1024)
     await decrypt(
       "foo",
-      block.salt,
-      block.iv,
-      block.headers,
-      block.data,
+      block,
       insecureKdf,
     )
   } catch (error) {
-    expect(error.message).toEqual("Header not found")
+    expect(error.message).toEqual("Decryption failed")
   }
 })
 
 test("encrypts secrets and decrypts secret 1", async () => {
-  const block = await encrypt(secrets, insecureKdf)
+  const block = await encrypt([secrets[0]], insecureKdf, 256)
   const secret = await decrypt(
     secrets[0].passphrase,
-    block.salt,
-    block.iv,
-    block.headers,
-    block.data,
+    block,
     insecureKdf,
   )
   expect(secret.toString()).toEqual(secrets[0].message)
 })
 
 test("encrypts secrets and decrypts secret 2", async () => {
-  const block = await encrypt(secrets, insecureKdf)
+  const block = await encrypt(secrets, insecureKdf, 1024)
   const secret = await decrypt(
     secrets[1].passphrase,
-    block.salt,
-    block.iv,
-    block.headers,
-    block.data,
+    block,
     insecureKdf,
   )
   expect(secret.toString()).toEqual(secrets[1].message)
 })
 
 test("encrypts secrets and decrypts secret 3", async () => {
-  const block = await encrypt(secrets, insecureKdf)
+  const block = await encrypt(secrets, insecureKdf, 1024)
   const secret = await decrypt(
     secrets[2].passphrase,
-    block.salt,
-    block.iv,
-    block.headers,
-    block.data,
+    block,
     insecureKdf,
   )
   expect(secret).toEqual(secrets[2].message)
