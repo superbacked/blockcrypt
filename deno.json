@@ -1,0 +1,6 @@
+{
+  "fmt": {
+    "semiColons": false,
+    "exclude": ["dist", "package-lock.json"]
+  }
+}
