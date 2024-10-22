@@ -21,28 +21,33 @@ const secrets: Secret[] = [
   {
     message:
       "trust vast puppy supreme public course output august glimpse reunion kite rebel virus tail pass enhance divorce whip edit skill dismiss alpha divert ketchup",
-    passphrase: "lip gift name net sixth",
+    key: Buffer.from([
+      4, 72, 156, 132, 66, 216, 156, 26, 55, 162, 221, 77, 214, 13, 146, 94,
+      146, 239, 47, 156, 123, 68, 210, 35, 142, 146, 52, 193, 214, 82, 109, 220,
+    ]),
   },
   {
     message: "this is a test\nyo",
-    passphrase: "grunt daisy chow barge pants",
+    key: Buffer.from([
+      158, 198, 159, 43, 229, 18, 213, 1, 55, 116, 184, 62, 75, 237, 50, 184,
+      123, 168, 31, 97, 208, 209, 209, 238, 42, 139, 98, 45, 31, 146, 7, 56,
+    ]),
   },
   {
     message: Buffer.from("yo"),
-    passphrase: "decor gooey wish kept pug",
+    key: Buffer.from([
+      180, 252, 249, 18, 136, 98, 214, 30, 168, 200, 64, 253, 65, 47, 210, 164,
+      66, 60, 44, 101, 109, 239, 173, 17, 50, 217, 41, 106, 3, 129, 59, 132,
+    ]),
   },
 ]
 
-const block = await encrypt(secrets, kdf, 1024)
+const block = await encrypt(secrets, 1024)
 
 console.log(block)
-// <Buffer 0e 2f ee 5f f1 69 df 6a b7 ff 43 ca 65 70 36 6b 38 cf b0 d7 23 cb f2 ca 63 1c 16 bf da 02 da 1c 2f 89 ca fe 29 36 d2 5c 1a 44 c3 32 23 02 56 ba 29 21 ... 974 more bytes>
+// <Buffer 52 4f d0 4f 97 33 36 24 6e 62 07 1e 0a 4c 24 cd 42 78 4c 4b 99 6c 03 73 23 de ea 45 2f d6 7f f4 ef bb ce a0 86 e5 94 29 99 53 cf ad 22 6e eb 30 32 54 ... 974 more bytes>
 
-const message = await decrypt(
-  "grunt daisy chow barge pants",
-  block
-  kdf,
-)
+const message = await decrypt(secrets[1].key, block)
 
 console.log(message)
 // <Buffer 74 68 69 73 20 69 73 20 61 20 74 65 73 74 0a 79 6f>

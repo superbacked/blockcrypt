@@ -3,26 +3,26 @@ import { decrypt, deriveSecretKey, encrypt, Secret } from "./index"
 
 const secrets: Secret[] = [
   {
+    message:
+      "trust vast puppy supreme public course output august glimpse reunion kite rebel virus tail pass enhance divorce whip edit skill dismiss alpha divert ketchup",
     key: Buffer.from([
       4, 72, 156, 132, 66, 216, 156, 26, 55, 162, 221, 77, 214, 13, 146, 94,
       146, 239, 47, 156, 123, 68, 210, 35, 142, 146, 52, 193, 214, 82, 109, 220,
     ]),
-    message:
-      "trust vast puppy supreme public course output august glimpse reunion kite rebel virus tail pass enhance divorce whip edit skill dismiss alpha divert ketchup",
   },
   {
+    message: "this is a test\nyo",
     key: Buffer.from([
       158, 198, 159, 43, 229, 18, 213, 1, 55, 116, 184, 62, 75, 237, 50, 184,
       123, 168, 31, 97, 208, 209, 209, 238, 42, 139, 98, 45, 31, 146, 7, 56,
     ]),
-    message: "this is a test\nyo",
   },
   {
+    message: Buffer.from("yo"),
     key: Buffer.from([
       180, 252, 249, 18, 136, 98, 214, 30, 168, 200, 64, 253, 65, 47, 210, 164,
       66, 60, 44, 101, 109, 239, 173, 17, 50, 217, 41, 106, 3, 129, 59, 132,
     ]),
-    message: Buffer.from("yo"),
   },
 ]
 
