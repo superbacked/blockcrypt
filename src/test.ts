@@ -38,7 +38,7 @@ const legacyReferenceHeadersSignature = Buffer.from(
 )
 
 test("gets data length of secret 1 as string", async () => {
-  const dataLength = getDataLength(Buffer.from(secrets[0].message))
+  const dataLength = getDataLength(secrets[0].message)
   expect(dataLength).toEqual(184)
 })
 
