@@ -12,7 +12,7 @@ export interface Secret {
   message: Message
 }
 
-export type Kdf = (passphrase: string, salt: string) => Promise<ArrayBufferLike>
+export type Kdf = (passphrase: string, salt: string) => Promise<Buffer>
 
 export const deriveSecretKey = async (
   kdf: Kdf,
