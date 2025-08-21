@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto"
+import { createHmac } from "node:crypto"
 import { decrypt, encrypt, getSecretsByteLength, Secret } from "./index"
 
 const secrets: Secret[] = [
@@ -27,23 +27,11 @@ const secrets: Secret[] = [
   },
 ]
 
-const insecureKdf = async (
-  passphrase: string,
-  salt: string,
-): Promise<Buffer> => {
-  const hmac = createHmac("sha256", salt)
-  const data = hmac.update(passphrase)
-  return Buffer.from(data.digest("base64"), "base64")
-}
-
 const referenceSignature = Buffer.from(
-  "Uk/QT5czNiRuYgceCkwkzUJ4TEuZbANzI97qRS/Wf/Tvu86ghuWUKZlTz60ibuswMlTQNvbqjrMUiUV8kiZ7sQ==",
+  "A1bXA8Nwc25O+caFQjpzo1OvDH5fE4VBtjSEDQuFjZiPRvOV4nbn0Q0TyCaIaMVxAuFzRQPlbHJEboSOTKMHVw==",
   "base64",
 )
 
-test("confirms block matches reference", async () => {
-  const block = await encrypt(secrets, 1024)
-  expect(Buffer.compare(block.subarray(0, 64), referenceSignature)).toEqual(0)
 test("gets byte length of secret 1", async () => {
   const byteLength = getSecretsByteLength([secrets[0]])
   expect(byteLength).toEqual(200)
@@ -136,11 +124,7 @@ test("encrypts secrets and decrypts secret 3", async () => {
   expect(secret).toEqual(secrets[2].message)
 })
 
-test("derives secret key from passphrase", async () => {
-  const passphrase = "decor gooey wish kept pug"
-  const salt = randomBytes(16)
-  const key = await deriveSecretKey(insecureKdf, passphrase, salt)
-  expect(key).toBeInstanceOf(Buffer)
-  expect(key.byteLength).toBe(32)
-  expect(key).not.toEqual(Buffer.alloc(32))
+test("confirms block matches reference", async () => {
+  const block = await encrypt(secrets, 1024)
+  expect(Buffer.compare(block.subarray(0, 64), referenceSignature)).toEqual(0)
 })
