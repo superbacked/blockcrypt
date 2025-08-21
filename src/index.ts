@@ -37,7 +37,6 @@ const encryptPlaintext = (key: Buffer, plaintext: Buffer): Buffer => {
   return Buffer.concat([
     cipher.update(plaintext),
     cipher.final(),
-    // @ts-ignore
     cipher.getAuthTag(),
   ])
 }
@@ -124,7 +123,6 @@ export const encrypt = async (
 const decryptCiphertext = (key: Buffer, ciphertext: Buffer): Buffer => {
   const decipher = createDecipheriv("chacha20-poly1305", key, Buffer.alloc(12))
   const authTagStart = ciphertext.byteLength - 16
-  // @ts-ignore
   decipher.setAuthTag(ciphertext.subarray(authTagStart))
   return Buffer.concat([
     decipher.update(ciphertext.subarray(0, authTagStart)),
