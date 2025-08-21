@@ -21,19 +21,27 @@ export const deriveSecretKey = async (
   return Buffer.from(key)
 }
 
-const deriveKey = (ikm: Buffer, context: string): Buffer => {
-  const okm = hkdfSync("sha256", ikm, "", context, 32)
+const deriveKey = (ikm: Buffer, info: string, keylen: number): Buffer => {
+  const okm = hkdfSync("sha256", ikm, "", info, keylen)
   return Buffer.from(okm)
 }
 
-const deriveKeys = async (ikm: Buffer): Promise<[Buffer, Buffer]> => {
-  const headerKey = deriveKey(ikm, "header")
-  const messageKey = deriveKey(ikm, "message")
-  return [headerKey, messageKey]
+const deriveKeys = async (
+  ikm: Buffer,
+): Promise<[Buffer, Buffer, Buffer, Buffer]> => {
+  const headerKey = deriveKey(ikm, "header-key", 32)
+  const headerIv = deriveKey(ikm, "header-iv", 12)
+  const messageKey = deriveKey(ikm, "message-key", 32)
+  const messageIv = deriveKey(ikm, "message-iv", 12)
+  return [headerKey, headerIv, messageKey, messageIv]
 }
 
-const encryptPlaintext = (key: Buffer, plaintext: Buffer): Buffer => {
-  const cipher = createCipheriv("chacha20-poly1305", key, Buffer.alloc(12))
+const encryptPlaintext = (
+  key: Buffer,
+  iv: Buffer,
+  plaintext: Buffer,
+): Buffer => {
+  const cipher = createCipheriv("chacha20-poly1305", key, iv)
   return Buffer.concat([
     cipher.update(plaintext),
     cipher.final(),
@@ -50,20 +58,20 @@ const pad = (plaintext: Buffer): Buffer => {
   ])
 }
 
-const encryptMessage = (key: Buffer, message: Buffer): Buffer =>
-  encryptPlaintext(key, pad(message))
+const encryptMessage = (key: Buffer, iv: Buffer, message: Buffer): Buffer =>
+  encryptPlaintext(key, iv, pad(message))
 
-const encryptHeader = (key: Buffer, ciphertext: Buffer): Buffer => {
+const encryptHeader = (key: Buffer, iv: Buffer, ciphertext: Buffer): Buffer => {
   const header = Buffer.alloc(8)
   const view = new DataView(header.buffer)
   view.setUint32(4, ciphertext.byteLength)
-  return encryptPlaintext(key, header)
+  return encryptPlaintext(key, iv, header)
 }
 
 const encryptSecret = async (key: Buffer, message: Buffer): Promise<Buffer> => {
-  const [headerKey, messageKey] = await deriveKeys(key)
-  const ciphertext = encryptMessage(messageKey, message)
-  const header = encryptHeader(headerKey, ciphertext)
+  const [headerKey, headerIv, messageKey, messageIv] = await deriveKeys(key)
+  const ciphertext = encryptMessage(messageKey, messageIv, message)
+  const header = encryptHeader(headerKey, headerIv, ciphertext)
   return Buffer.concat([header, ciphertext])
 }
 
@@ -122,8 +130,12 @@ export const encrypt = async (
   return block.finalize()
 }
 
-const decryptCiphertext = (key: Buffer, ciphertext: Buffer): Buffer => {
-  const decipher = createDecipheriv("chacha20-poly1305", key, Buffer.alloc(12))
+const decryptMessage = (
+  key: Buffer,
+  iv: Buffer,
+  ciphertext: Buffer,
+): Buffer => {
+  const decipher = createDecipheriv("chacha20-poly1305", key, iv)
   const authTagStart = ciphertext.byteLength - 16
   decipher.setAuthTag(ciphertext.subarray(authTagStart))
   return Buffer.concat([
@@ -138,11 +150,15 @@ const parseHeader = (header: Buffer, start: number): [number, number] => {
   return [start, start + size]
 }
 
-const decryptHeader = (key: Buffer, block: Buffer): [number, number] => {
+const decryptHeader = (
+  key: Buffer,
+  iv: Buffer,
+  block: Buffer,
+): [number, number] => {
   for (let start = 0; start < block.byteLength; start += 8) {
     try {
       const end = start + 24
-      const header = decryptCiphertext(key, block.subarray(start, end))
+      const header = decryptMessage(key, iv, block.subarray(start, end))
       return parseHeader(header, end)
     } catch {}
   }
@@ -173,15 +189,21 @@ const unpad = (message: Buffer): Buffer => {
 
 const decryptSecret = (
   headerKey: Buffer,
+  headerIv: Buffer,
   messageKey: Buffer,
+  messageIv: Buffer,
   block: Buffer,
 ): Buffer => {
-  const [start, end] = decryptHeader(headerKey, block)
-  const message = decryptCiphertext(messageKey, block.subarray(start, end))
+  const [start, end] = decryptHeader(headerKey, headerIv, block)
+  const message = decryptMessage(
+    messageKey,
+    messageIv,
+    block.subarray(start, end),
+  )
   return unpad(message)
 }
 
 export const decrypt = async (key: Buffer, block: Buffer): Promise<Buffer> => {
-  const [headerKey, messageKey] = await deriveKeys(key)
-  return decryptSecret(headerKey, messageKey, block)
+  const [headerKey, headerIv, messageKey, messageIv] = await deriveKeys(key)
+  return decryptSecret(headerKey, headerIv, messageKey, messageIv, block)
 }
