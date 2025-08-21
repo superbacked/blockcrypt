@@ -5,11 +5,9 @@ import {
   randomBytes,
 } from "node:crypto"
 
-export type Message = Buffer | string
-
 export interface Secret {
   key: Buffer
-  message: Message
+  message: Buffer
 }
 
 export type Kdf = (passphrase: string, salt: string) => Promise<Buffer>
@@ -118,9 +116,7 @@ export const encrypt = async (
   }
   const block = new Block(blockSize)
   await Promise.all(
-    secrets.map((secret) =>
-      block.encrypt(secret.key, Buffer.from(secret.message)),
-    ),
+    secrets.map((secret) => block.encrypt(secret.key, secret.message)),
   )
   return block.finalize()
 }

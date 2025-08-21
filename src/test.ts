@@ -3,26 +3,27 @@ import { decrypt, deriveSecretKey, encrypt, Secret } from "./index"
 
 const secrets: Secret[] = [
   {
-    message:
-      "trust vast puppy supreme public course output august glimpse reunion kite rebel virus tail pass enhance divorce whip edit skill dismiss alpha divert ketchup",
     key: Buffer.from([
       4, 72, 156, 132, 66, 216, 156, 26, 55, 162, 221, 77, 214, 13, 146, 94,
       146, 239, 47, 156, 123, 68, 210, 35, 142, 146, 52, 193, 214, 82, 109, 220,
     ]),
+    message: Buffer.from(
+      "trust vast puppy supreme public course output august glimpse reunion kite rebel virus tail pass enhance divorce whip edit skill dismiss alpha divert ketchup",
+    ),
   },
   {
-    message: "this is a test\nyo",
     key: Buffer.from([
       158, 198, 159, 43, 229, 18, 213, 1, 55, 116, 184, 62, 75, 237, 50, 184,
       123, 168, 31, 97, 208, 209, 209, 238, 42, 139, 98, 45, 31, 146, 7, 56,
     ]),
+    message: Buffer.from("this is a test\nyo"),
   },
   {
-    message: Buffer.from("yo"),
     key: Buffer.from([
       180, 252, 249, 18, 136, 98, 214, 30, 168, 200, 64, 253, 65, 47, 210, 164,
       66, 60, 44, 101, 109, 239, 173, 17, 50, 217, 41, 106, 3, 129, 59, 132,
     ]),
+    message: Buffer.from("yo"),
   },
 ]
 
@@ -75,7 +76,7 @@ test("fails to encrypt secrets using block size that is too short", async () => 
 
 test("encrypts secret 1 using minimum required block size", async () => {
   const secret1 = secrets[0]
-  const blockSize = 24 + Math.ceil(secret1.message.length / 8) * 8 + 16
+  const blockSize = 24 + Math.ceil(secret1.message.byteLength / 8) * 8 + 16
   const block = await encrypt([secret1], blockSize)
   expect(block.byteLength).toBe(blockSize)
 })
@@ -99,13 +100,13 @@ test("encrypts secrets and fails to decrypt secret 1 using wrong key", async () 
 test("encrypts secrets and decrypts secret 1", async () => {
   const block = await encrypt(secrets.slice(0, 1), 256)
   const secret = await decrypt(secrets[0].key, block)
-  expect(secret.toString()).toEqual(secrets[0].message)
+  expect(secret).toEqual(secrets[0].message)
 })
 
 test("encrypts secrets and decrypts secret 2", async () => {
   const block = await encrypt(secrets, 1024)
   const secret = await decrypt(secrets[1].key, block)
-  expect(secret.toString()).toEqual(secrets[1].message)
+  expect(secret).toEqual(secrets[1].message)
 })
 
 test("encrypts secrets and decrypts secret 3", async () => {
