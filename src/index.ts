@@ -98,12 +98,14 @@ class Block {
 }
 
 const isValidSecrets = (secrets: Secret[]): boolean =>
-  secrets instanceof Array &&
+  Array.isArray(secrets) &&
   secrets.length > 0 &&
   secrets.every(
-    (secret) =>
-      Buffer.from(secret.key || "").byteLength === 32 &&
-      Buffer.from(secret.message || "").byteLength > 0,
+    ({ key, message }) =>
+      Buffer.isBuffer(key) &&
+      key.byteLength === 32 &&
+      Buffer.isBuffer(message) &&
+      message.byteLength > 0,
   )
 
 export const encrypt = async (
