@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto"
-import { decrypt, deriveSecretKey, encrypt, Secret } from "./index"
+import { decrypt, encrypt, getSecretsByteLength, Secret } from "./index"
 
 const secrets: Secret[] = [
   {
@@ -44,6 +44,27 @@ const referenceSignature = Buffer.from(
 test("confirms block matches reference", async () => {
   const block = await encrypt(secrets, 1024)
   expect(Buffer.compare(block.subarray(0, 64), referenceSignature)).toEqual(0)
+test("gets byte length of secret 1", async () => {
+  const byteLength = getSecretsByteLength([secrets[0]])
+  expect(byteLength).toEqual(200)
+})
+
+test("gets byte length of secrets", async () => {
+  const byteLength = getSecretsByteLength([
+    {
+      key: secrets[0].key,
+      message: Buffer.from(secrets[0].message),
+    },
+    {
+      key: secrets[1].key,
+      message: Buffer.from(secrets[1].message),
+    },
+    {
+      key: secrets[2].key,
+      message: Buffer.from(secrets[2].message),
+    },
+  ])
+  expect(byteLength).toEqual(312)
 })
 
 test("fails to encrypt no secrets", async () => {

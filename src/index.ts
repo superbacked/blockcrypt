@@ -116,6 +116,18 @@ const isValidSecrets = (secrets: Secret[]): boolean =>
       message.byteLength > 0,
   )
 
+export const getSecretsByteLength = (secrets: Secret[]): number => {
+  if (!isValidSecrets(secrets)) {
+    throw new Error("Invalid secrets")
+  }
+  return secrets.reduce((totalSize, secret) => {
+    const paddedMessageByteLength =
+      Math.ceil((secret.message.byteLength + 1) / 8) * 8
+    const encryptedSecretByteLength = 24 + paddedMessageByteLength + 16
+    return totalSize + encryptedSecretByteLength
+  }, 0)
+}
+
 export const encrypt = async (
   secrets: Secret[],
   blockSize: number,
