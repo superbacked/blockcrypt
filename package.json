@@ -1,7 +1,7 @@
 {
   "name": "blockcrypt",
   "version": "0.0.1-beta.23",
-  "description": "Encrypt one or more secrets with plausible deniability by design.",
+  "description": "Encrypt one or more secrets with plausible deniability.",
   "main": "dist/index.js",
   "files": [
     "dist/",
