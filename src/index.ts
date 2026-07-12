@@ -58,8 +58,8 @@ export const getDataLength = (message: Message) => {
 export const encrypt = async (
   secrets: Secret[],
   kdf: Kdf,
-  headersLength?: number,
-  dataLength?: number,
+  headersLength?: number | null,
+  dataLength?: number | null,
   salt?: Buffer,
   iv?: Buffer,
   legacyMode?: boolean
@@ -87,7 +87,9 @@ export const encrypt = async (
   for (const [index, secret] of secrets.entries()) {
     const key = await kdf(secret.passphrase, salt.toString("base64"))
     const dataKey =
-      legacyMode === true ? key : hkdfSync("sha256", key, "", "data", 32)
+      legacyMode === true
+        ? key
+        : Buffer.from(hkdfSync("sha256", key, "", "data", 32))
     const dataIv = randomBytes(12)
     const dataCipher = createCipheriv(
       "aes-256-gcm",
@@ -102,7 +104,9 @@ export const encrypt = async (
     const dataAuthTag = dataCipher.getAuthTag()
     const dataEncipheredFinalLength = dataEncipheredFinal.length
     const headersKey =
-      legacyMode === true ? key : hkdfSync("sha256", key, "", "headers", 32)
+      legacyMode === true
+        ? key
+        : Buffer.from(hkdfSync("sha256", key, "", "headers", 32))
     const headersCipher = createCipheriv(
       "aes-256-cbc",
       Buffer.from(headersKey),
@@ -122,6 +126,9 @@ export const encrypt = async (
     if (!dataLength && index === 0) {
       dataLength = Math.ceil((dataBuffer.length * 2) / 64) * 64
     }
+  }
+  if (!dataLength) {
+    throw new Error("Invalid data length")
   }
   let data = Buffer.concat(dataBuffers)
   const unpaddedDataLength = data.length
@@ -172,7 +179,9 @@ export const decrypt = async (
     for (let headerEnd = headers.length; headerEnd > headerStart; headerEnd--) {
       try {
         const headersKey =
-          legacyMode === true ? key : hkdfSync("sha256", key, "", "headers", 32)
+          legacyMode === true
+            ? key
+            : Buffer.from(hkdfSync("sha256", key, "", "headers", 32))
         const headersDecipher = createDecipheriv(
           "aes-256-cbc",
           Buffer.from(headersKey),
@@ -202,8 +211,9 @@ export const decrypt = async (
   if (!header) {
     throw new Error("Header not found")
   }
-  const [dataEncipheredFinalStart, dataEncipheredFinalLength] =
-    header.split(":")
+  const [dataEncipheredFinalStart, dataEncipheredFinalLength] = header.split(
+    ":"
+  ) as [string, string]
   const dataEncipheredFinalEnd =
     parseInt(dataEncipheredFinalStart) + parseInt(dataEncipheredFinalLength)
   const dataEncipheredFinal = data.subarray(
@@ -211,7 +221,9 @@ export const decrypt = async (
     dataEncipheredFinalEnd
   )
   const dataKey =
-    legacyMode === true ? key : hkdfSync("sha256", key, "", "data", 32)
+    legacyMode === true
+      ? key
+      : Buffer.from(hkdfSync("sha256", key, "", "data", 32))
   const dataIvStart = dataEncipheredFinalEnd
   const dataIvEnd = dataIvStart + 12
   const dataIv = data.subarray(dataIvStart, dataIvEnd)
