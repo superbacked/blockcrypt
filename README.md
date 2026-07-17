@@ -1,8 +1,12 @@
 # Blockcrypt (beta)
 
-## Encrypt one or more secrets with plausible deniability by design.
+## Encrypt one or more secrets with plausible deniability.
 
-Blockcrypt is used to encrypt one or more secrets (up to 4 by default) using encrypted headers which are indistinguishable from each other, data and padding resulting in plausible deniability by design.
+Blockcrypt encrypts one or more secrets (up to four by default) — each using its own passphrase — into a fixed-size block whose encrypted headers, encrypted data and random padding are indistinguishable from one another, providing plausible deniability.
+
+## Documentation
+
+See the [Blockcrypt technical documentation](docs/blockcrypt-technical-documentation.md) for the cryptographic design and implementation — block format, key derivation, encryption, decryption, security properties and known limitations.
 
 ## Installation
 

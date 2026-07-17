@@ -1,7 +1,7 @@
 {
   "name": "blockcrypt",
-  "version": "0.0.1-beta.23",
-  "description": "Encrypt one or more secrets with plausible deniability by design.",
+  "version": "0.0.1-beta.24",
+  "description": "Encrypt one or more secrets with plausible deniability.",
   "main": "dist/index.js",
   "files": [
     "dist/",
@@ -10,14 +10,17 @@
     "README.md"
   ],
   "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.15.32",
-    "jest": "^29.7.0",
-    "npm-check-updates": "^17.1.18",
-    "typescript": "^5.8.3"
+    "@types/jest": "^30.0.0",
+    "@types/node": "25.9.1",
+    "jest": "^30.4.2",
+    "npm-check-updates": "^19.6.6",
+    "prettier": "^3.9.4",
+    "typescript": "5.9.3"
   },
   "scripts": {
     "code": "tsc -w",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier '**/*.{json,md,ts}' --ignore-path .gitignore --write",
     "build": "rm -fr dist/*; tsc",
     "test": "jest dist/test.js",
     "prepublishOnly": "npm run build",
