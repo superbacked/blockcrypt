@@ -1,4 +1,6 @@
-# Blockcrypt (beta)
+# Blockcrypt (deprecated)
+
+Blockcrypt is now part of Superbacked codebase as [fixed-sized encryption](https://github.com/superbacked/superbacked/blob/main/docs/technical-documentation/fixed-size-encryption.md).
 
 ## Encrypt one or more secrets with plausible deniability.
 
